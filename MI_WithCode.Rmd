@@ -1,0 +1,1242 @@
+---
+title: 'Hydrobiologie-GBIF : Projet MacroInvertébrés 2018'
+author: "Maxime Coupremanne -- Belgian Biodiversity Platform"
+date: "2019"
+output:
+  word_document:
+    fig_caption: yes
+    highlight: pygments
+    toc: yes
+  pdf_document:
+    toc: yes
+  html_document:
+    highlight: textmate
+    theme: cerulean
+    toc: yes
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+![](C:/Users/46123/Pictures/bbpfl.png) 
+
+
+# 1. Contexte
+
+Suite à une discussion tenue le 28/09/2018 avec François Darchambeau et Frédéric Chérot, il a été décidé de reprendre le travail publication d'un jeu de données issu de la cellule hydrobio sur le portail GBIF, annulé en 2017.
+
+Ce document détaille une proposition de publication GBIF concernant la collection "macroinvertébrés" encodée dans AQUABIO. Il s'agit uniquement d'une proposition, rien n'a été effectué hormis la description faite dans ce document même, et un travail équivalent sera réalisé séparément pour chaque groupe indicateur, après accord avec le responsable. 
+
+ <span style="color: #fb4141"> Je propose l'adaptation et de la validation de cette procédure en réunion avant de commencer tout travail côté GBIF.</span>
+
+
+L'ensemble des documents décris se trouve dans le répertoire : 
+
+**X:/PUB-O3020300A2/NatureParTheme/GBIF/Hydrobiologie_MI**
+
+
+## 1.1 Publier sur GBIF
+
+Le GBIF (https://www.gbif.org/) est un portail international permettant l'accès gratuit aux données relatives à la biodiversité. Le portail est orienté taxonomie (listes spécifiques de taxons) et surtout distribution (occurrences).
+Publier des données sur GBIF, ce n'est pas céder la propriété de son jeu de données (licenses Creative Commons sont d'application) mais plutôt en préparer un échantillon que l'on désire intégrer à un ensemble de données gratuitement accessibles (dépassant le milliard de données d'occurrence).
+
+
+Le SPW s'est engagé à la publication des données sur GBIF au travers des accords passés avec la plateforme biodiversité Belge (BBPf; délégation belge du GBIF) et dans le cadre du projet TrIAS (espèces exotiques, décris plus bas).
+Voici un exemple de premier jeu de données publié par le DEMNA :
+
+
+https://www.gbif.org/dataset/f145c27d-b1c3-4136-85b1-c21674d2d1c3 
+
+
+**La publication d'un jeu de données d'occurrences sur GBIF implique de préparer :**
+
+1) le jeu de données lui-même.
+
+2) les métadonnées (description).
+
+### Le jeu de données
+
+Ce n'est pas une copie entière de la BD originale telle qu'elle est , mais un échantillon retravaillé pour entrer dans le format GBIF (*appelé DarwinCore*).
+
+  + On ne publie que ce que l'on désire publier.
+  
+  + Les noms des champs d'informations sont adaptés pour être reconnus par GBIF.
+  
+  + L'information contenue dans ces champs est parfois modifiée pour correspondre au vocabulaire communément utilisé sur GBIF. Le contrôle de ces champs d'informations sert en même temps à isoler des données qu'on ne veut pas publier.
+  
+  + C'est la base de l'interopérabilité des données sur GBIF, ce qui permet de faire des requêtes spécifiques aux travers de l'ensemble des jeux de données ajoutés séparément (sélectionner toutes les données pour un même taxon, dans une certaine région par exemple).
+  
+La première partie de ce document détaille, point par point, comment je propose de préparer un jeu de données au format GBIF sur base d'une extraction de données d'AQUABIO. Il s'agit d'un flux de travail répétable en SQL : il est possible d'adapter chaque manipulation à tout moment et de relancer la préparation depuis l'extrait initial.
+  
+###Les métadonnées
+
+Elles décrivent le jeu de données. Il s'agit d'un ensemble de champs d'information à remplir (*préparation des données, couverture géographique, temporelle, taxo, description générale, etc.*).
+Si le schéma de la description est assez rigide, il permet tout de même d'y inclure presque toutes les mentions/communications désirées. Il n'est techniquement pas  possible de mettre la description en plusieurs langues, et l'anglais est hautement conseillé.
+
+Une fois un accord obtenu pour la proposition de préparation des données et pour la proposition de métadonnées, le tout peut être importé sur le portail (les deux sont indisosciables).
+
+  
+
+###A savoir...
+
+* Les données - datasets précédement publiées ont été supprimées.
+
+* Les données 'Validées', uniquement, peuvent être sujettes à la diffusion (Règle DEMNA/SPW).
+
+* Il est important de publier un jeu de données qui soit le plus 'proche' possible du jeu de données initial (éviter fusion de macro invertebrés entre AQUABIO, OFFH et autres sources) pour éviter les manipulations risquées et obtenir un ensemble de données cohérant pouvant être décrit dans un seul bloc de métadonnées. C'est pourquoi cette proposition ne concerne que les invertébrés, l'approche pourra être répétée pour les autres indicateurs.
+
+
+***
+
+# 2. Reprise
+
+MaC reprend le travail 2017 pour préparer une nouvelle version des données, exposer le traitement et un premier jet des métadonnées à la cellule hydrobio. Une fois un accord conclu sur base de ce document/une réunion, demande de feu vert pour la publication. 
+
+***
+
+# 3. Préparation du jeu de données Macro Invertébrés issues de la DB AQUABIO
+
+Cette partie détaille comment un jeu de données au format GBIF (DarwinCore) est préparé à partir d'AQUABIO. Il s'agit d'un flux de travail répétable en SQL qui est appliqué sur une extraction de données depuis la BD AQUABIO. 
+
+## 3.1. Extraction des données depuis la BD AQUABIO
+
+La requête ACCESS suivante est utilisée pour extraire les données d'occurrence depuis la base de données AQUABIO. Comme convenu, les données allant jusque 2016 (même export que l'an passé) uniquement sont extraites.
+
+```
+SELECT 
+GEN_D_COUEAU.LIBELL as WATERBODY,
+GEN_SITE.CODSIT as SITEID, 
+GEN_SITE.LAMBEX as X, 
+GEN_SITE.LAMBEY as Y, 
+GEN_SITE.LIBSIT as STATION_MEMO,
+GEN_D_TYPOLO.LIBELL as TYPO_COURS_DO,
+GEN_SITE.ALTITUDE as ELEVATION,
+GEN_D_PRECXY.LIBELL as PREC,
+R_PREESP_GEN.DATVIS as DAT2, 
+R_PREESP_GEN.CODIND as CollectionCode, 
+R_PREESP_GEN.TAXA as TAX, 
+R_PREESP_GEN.NBRIND as N, 
+R_PREESP_GEN.ANNEE as YEAR,
+GEN_D_LOCALI.LIBELL as LOCALITE,
+GEN_D_COMMUN.LIBELL as MUNICIPALITE,
+"AQUABIO-DEMNA_SPW" as REC,
+R_PREESP_GEN.CODSTA as VALIDATION,
+GEN_D_STAVIS.LIBSTA as VALIDATION_MEAN,
+MI_ECHANT.REFECH as CollectionNumberMI,
+DT_COMPTA.REFCOM as CollectionNumberDT
+FROM (((((((((((
+(GEN_SITE 
+LEFT JOIN R_PREESP_GEN ON GEN_SITE.CODSIT = R_PREESP_GEN.CODSIT)
+LEFT JOIN DT_COMPTA on (R_PREESP_GEN.DATVIS = DT_COMPTA.DATVIS) and (R_PREESP_GEN.CODSIT= DT_COMPTA.CODSIT))
+LEFT JOIN MI_ECHANT  on (R_PREESP_GEN.DATVIS = MI_ECHANT.DATVIS) and (R_PREESP_GEN.CODSIT= MI_ECHANT.CODSIT))
+LEFT JOIN GEN_D_STAVIS ON R_PREESP_GEN.CODSTA = GEN_D_STAVIS.CODSTA)
+LEFT JOIN GEN_D_PRECXY ON GEN_SITE.CODE_PRECXY = GEN_D_PRECXY.CODE_PRECXY)
+LEFT JOIN GEN_D_COUEAU ON GEN_SITE.CODE_COUEAU = GEN_D_COUEAU.CODE_COUEAU) 
+LEFT JOIN GEN_D_LOCALI ON GEN_SITE.CODE_LOCALI = GEN_D_LOCALI.CODE_LOCALI) 
+LEFT JOIN GEN_D_COMMUN ON GEN_D_LOCALI.CODE_COMMUN = GEN_D_COMMUN.CODE_COMMUN) 
+LEFT JOIN GEN_D_MASEAU ON GEN_SITE.CODE_MASEAU_SURV = GEN_D_MASEAU.CODE_MASEAU) 
+LEFT JOIN GEN_D_SOUBAS ON GEN_D_MASEAU.CODE_SOUBAS = GEN_D_SOUBAS.CODE_SOUBAS) 
+LEFT JOIN GEN_D_TYPOLO ON GEN_D_MASEAU.CODE_TYPOLO = GEN_D_TYPOLO.CODE_TYPOLO) 
+LEFT JOIN GEN_D_DISTRI ON GEN_D_SOUBAS.CODE_DISTRI = GEN_D_DISTRI.CODE_DISTRI) 
+LEFT JOIN GEN_D_TCOEUR ON GEN_SITE.CODE_TCOEUR = GEN_D_TCOEUR.CODE_TCOEUR  
+WHERE (((R_PREESP_GEN.CODIND)="PO" Or (R_PREESP_GEN.CODIND)="MP" or (R_PREESP_GEN.CODIND)="MI"  or (R_PREESP_GEN.CODIND)="DT"));
+```
+
+Toutes les collections sont concernées par la requête qui servira pour les différents jeux de données. La sélection des MI se fait en aval (voir 3.2).
+
+***
+
+## 3.2. Creation d'une BD locale (SQLite) pour travailler à la préparation des données
+
+La table de résultats est ensuite importée dans une BD SQLite locale simplifiée (MI.db), dédiée à la préparation du jeu d'occurrences. Le SQL de préparation se base sur cette base de données (inclue dans le présent dossier) et permet d'adapter chaque étape sans altérer les modifications suivantes.
+
+```{r}
+#Connection à la DB locale
+library(DBI)
+db <- dbConnect(RSQLite::SQLite(), dbname = "C:/Users/46123/Desktop/Hydrobio_2018/MI.db")
+```
+
+*La table initiale contient toutes les occurrences pour les collections PO, MI, MP, DT, avec un total de plus de 340.000 enregistrements*.
+
+  + **Vue d'ensemble et sauvegarde des données MI telles qu'exportées depuis AQUABIO :**
+
+```{sql connection=db, max.print=21}
+PRAGMA table_info(occurrences_original);
+```
+
+```
+-- create table Occurrences_Original as select * from occurrences
+```
+
+```{sql connection=db}
+drop table if exists occurrences ;
+```
+
+```{sql connection=db}
+--NB: Réinitialisation la table avant de refaire tourner le SQL--
+create table occurrences as select * from Occurrences_original;
+```
+
+Il faut ensuite cibler les macroInvertébrés. Si la colonne "R_PREESP_GEN.CODIND" (CollectionCode) est exploitable, on peut l'utiliser pour isoler l'ensemble de la collection. 
+  
+ Il y a 197 271 occurrences pour la collection MI. Le code de collection est spécifié pour chaque enregistrement et peut donc être utilisé pour écarter les autres collections.
+
+
+```{sql connection=db}
+Delete from occurrences where collectionCode !=("MI")
+```
+
+
+```{sql connection=db}
+select distinct CollectionCode, count(*) Nombre from occurrences group by collectionCode order by Nombre desc; 
+```
+
+
+**La table 'occurrences' ne contient maintenant plus que les données associées à la collection de macroinvertébrés.**
+
+***
+
+
+##  3.3. Préparation du jeu de données au format 'DarwinCore Occurrences'
+
+Le format de données GBIF utilise des champs spécifiques et documentés (http://rs.tdwg.org/dwc/terms/). Les valeurs que prennent ces champs doivent également suivre les standards proposés (cf. intéroperabilité). Il s'agit donc de 'traduire' simplement la table. L'adaptation de chaque champ est une occasion de nettoyer celui-ci ou d'isoler certaines données qui ne devraient pas être inclues dans la publication (certains taxons, les doublons, etc.). 
+  
+*Cette section détaille quels champs de la BD AQUABIO ont été inteprêtés pour créer le jeu de données au Format GBIF (DarwinCore);*
+
+### Correspondances des champs AQUABIO avec ceux du DarwinCore :
+
+
+La table résume comment les champs issus de l'extraction AQUABIO sont interpretés pour créer un jeu de données pour GBIF.
+
+```{sql connection=db, max.print=20}
+select * from Mapping_AQUABIO_DWC;
+```
+
+
+Ces champs vont être "affinés" 1 par 1 dans la suite de la suite de ce point. Il s'agit de contrôler et reformater (si besoin) chacune des colonnes pour coller exactement avec les attentes GBIF.
+
+
+### Nom du taxon (ScientificName - obligatoire)
+
+
+**Taxons les plus fréquents avant les modifications/sélections :**
+
+```{sql connection=db, max.print=10}
+select distinct tax, count(*) Nombre from occurrences_original group by tax order by Nombre desc;
+```
+
+
+Il y a **652** noms de taxons repris sous la colonne sur laquelle se basera le ScientificName (R_PREESP_GEN.TAXA), et un tri serait nécessaire pour ne garder que des taxons à diffuser(noms vernaculaires, noms invalides, familles ou rangs taxonomiques supérieurs).
+
+
+**Méthode utilisée pour trier les taxons :**
+
+
+* Créer une nouvelle table de référence taxonomique reprenant l'ensemble des noms de taxons, pouvant être travaillés sans altérer directement les données originales.
+
+```
+--drop table if exists Taxons_tris;
+```
+```
+--Create table Taxons_tris as select distinct tax  as ScientificName from Occurrences order by Scientificname;
+```
+
+
+* Ajouter une colonne 'Justification' qui récoltera les différents cas de figure possibles par rapport à l'information taxonomique (est-ce un nom d'espèce, de genre, invalide, etc.)
+* Identifier les familles (sur base de la terminaison en "idae" + vérification ligne par ligne des résultats de la requête).
+* Identifier les espèces (SQL reconnaissant deux mots distincts + vérification ligne par ligne des résultats de la requête).
+* Identifier les entrées invalides, vides.
+* Identifier les rangs taxonomiques supérieurs à la Famille (ordres, infra-ordres, etc. : en parcourant ce qui n'entre pas dans les autres cas de figure).
+* La table de référence taxonomique ainsi créée, et qui peut être mise à jour à tout moment, est utilisée pour ne sélectionner que les taxons valides à un niveau espèce ou genre (suppression de ce qui n'est pas reconnu comme tel selon la colonne 'Justification').
+* Cette table a été révisée par FrC (fevrier 2019). Lors d'une mises à jour, il faudrait faire attention à voir si il y a de nouvelles valeurs d'encodages.
+
+**Afin de ne pas encombrer la publication avec des données ayant une trop faible résolution taxonomique, uniquement les rangs espèce/genre sont gardés dans cette proposition. Cela peut être modifié à tout moment.** 
+
+  + **SQL utilisé pour générer cette table de référence (lecture indigeste) :**
+  
+  
+
+```
+--select * from Taxons_tris;
+alter table taxons_tris add column Publication text default NULL; -- Gardé ou non pour la publication
+alter table Taxons_tris add column Justification text default NULL; -- Justification Si exclus
+-- 1 Les Familles (à rejetter) ;
+select * from Taxons_tris where trim(scientificname) like '%Dae'; -- 185
+update Taxons_tris set Justification ='Famille' where trim(scientificname) like '%Dae';
+-- bis, pour les taxons incluant une terminaison en 'Dae' mais pas sur le dernier mot du champ (attention particulière au screening de ce qui sera rejetté);
+select * from Taxons_tris where trim(scientificname) like '%Dae%' and justification is null; -- "Chironomidae autres" comme seule entrée...
+update Taxons_tris set Justification ='Famille' where trim(scientificname) like '%Dae%'  and justification is null;
+-- Les noms au niveau de l'espèce ( à garder) ;
+select * from Taxons_tris where trim(scientificname) like '% %' and justification is null;-- ceux constitué de deux mots, pas encore rejettés.
+update Taxons_tris set Justification ='Espèce' where trim(scientificname)like '% %' and justification is null; -- 187 espèces a priori
+-- Les noms au niveau du genre : difficile à isoler techniquement... les mots uniques ayant une terminaison compatible sont screenés un à uns
+select * from Taxons_tris where trim(scientificName) not like '% %' and justification is null; -- 278 noms de genre potentiels, exclure les plus évidents mais une verrifcation sera nécéssaire(classes, ordres, invalides).
+update Taxons_tris set Justification = "Genre" where trim(scientificName) not like '% %' and justification is null and scientificName not in ("Achetes","Amphipodes", "Annelides","Bivalves","Bryozoaires"
+, "Cladoceres","Cnidaires" , "Coleoptera", "Coleopteres", "Copepodes", "Crustacea", "Decapoda", "Diptera", "Dipteres" , "Ephemeropteres", "Ephemeroptera","Exuvies", "Gasteropodes",  "Gasteropoda" , "Heteroptera", "Hydracariens",
+"Hydrozoaires", "Hymenoptera" , "Insecta", "Isopodes","Lepidoptera","Megaloptera", "Mollusques", "Nemathelminthes",  "Nematodes","Nemertiens" ,"Odonata","Odonates", "Oligochetes", "Plathelminthes","Plecoptera", "Plecopteres", "Poissons",
+"Polychetes","Spongiaires","Trichoptera",  "Trichopteres", "Triclades", "Turbellaries","Vertebrata", "Fourreaux de Trichoptera");
+-- Supprimer encodages non valides (et champs vides)
+update taxons_tris set Justification = 'Invalide' where scientificname in ("Aucun taxon", "", " " );
+-- supprimer noms correspondant à un niveau taxo supérieur à la famille ;
+update taxons_tris set Justification = 'HigherRank' where  scientificName in ("Achetes","Amphipodes", "Annelides","Bivalves","Bryozoaires"
+, "Cladoceres","Cnidaires" , "Coleoptera", "Coleopteres", "Copepodes", "Crustacea", "Decapoda", "Diptera", "Dipteres" , "Ephemeropteres", "Ephemeroptera","Exuvies", "Gasteropodes",  "Gasteropoda" , "Heteroptera", "Hydracariens",
+"Hydrozoaires", "Hymenoptera" , "Insecta", "Isopodes","Lepidoptera","Megaloptera", "Mollusques", "Nemathelminthes",  "Nematodes","Nemertiens" ,"Odonata","Odonates", "Oligochetes", "Plathelminthes","Plecoptera", "Plecopteres", "Poissons",
+"Polychetes","Spongiaires","Trichoptera",  "Trichopteres", "Triclades", "Turbellaries","Vertebrata","Fourreaux de Trichoptera");
+-- Etablir les choix (garder/rejet) en fonction des justifications ; 
+update Taxons_tris set publication = 'N' where justification in ('Famille', 'Invalide', 'HigherRank');
+update Taxons_tris set publication = 'Y' where justification in ('Espèce', 'Genre');
+select * from Taxons_tris where publication is null;-- tout est attribué
+-- tout est traité, reste à valider les espèces et genres par la taxonomie GBIF (surtout les taxons identifés comme des genres).
+
+```
+
+
+  + **Exemples de taxons rejettés de la publication (249 entrées):**
+
+
+```{sql connection=db, max.print= 20}
+select * from Taxons_tris where publication = 'N'; -- 249 rejets
+```
+
+
+
+  + **Exemples de taxons gardés dans la publication (403 noms des genres ou d'espèces):**
+  
+  
+
+```{sql connection=db, max.print= 20}
+select * from Taxons_tris where publication = 'Y'; -- 403 genres et espèces... travail à valider (GBIf, fRC?)
+```
+
+
+==> Cette table est reprise dans le dossier du projet de publication :
+
+*X:/PUB-O3020300A2/NatureParTheme/GBIF/Hydrobiologie_MI/taxons.csv*
+
+Cette référence est utilisée pour ne garder que les taxons reconnus comme des espèces ou genres dans la table d'occurrences.
+
+*Celle-ci pourrait également être utlisée comme filtre d'import pour les transferts de données internes au DEMNA.* 
+
+
+
+```{sql connection=db}
+delete from occurrences where lower(trim(tax)) not in (select lower(trim(scientificname)) from Taxons_tris where publication ='Y');
+```
+
+```{sql connection=db}
+select count(distinct tax) as Nombre_de_taxons from occurrences;
+```
+
+```{sql connection=db}
+select count(*) as Nombre_enregistrements from occurrences ;
+```
+ 
+ 
+Il reste donc 53697 occurrences de 403 taxons (sp./gen) sur les 197.000 enregistrements/652 taxons (encodage distincts) que la collection comptait au départ.
+
+  + **Taxons les plus fréquents après la séléction :**
+
+```{sql echo=FALSE, connection=db, max.print=15}
+
+select distinct(tax), count(*)Ndata from occurrences group by tax order by Ndata desc;
+```
+
+La colonne est sauvegardée sous le terme DarwinCore 'ScientificName':
+
+*"The full scientific name, with authorship and date information if known. When forming part of an Identification, this should be the name in lowest level taxonomic rank that can be determined"*.
+
+
+```{sql connection=db}
+alter table occurrences add column ScientificName text default null;
+```
+```{sql connection=db}
+update occurrences set scientificname=tax;
+```
+
+
+**Le champ taxonomique principal (ScientificName) est maintenant complet et filtré**
+
+***
+
+### Informations temporelles -- *EventDate, Year, Month, Day, verbatimEventDate*
+
+Ces champs correspondent respectivement à la date d'échantillonnage (AAAA-MM-JJ), l'année (AAAA), le mois (MM), le jour (JJ) et la date sous son format original.
+
+Toutes ces informations sont déduites depuis la date de visite(R_PREESP_GEN.DATVIS), importée au format texte et reformatée pour remplir les différents champs GBIF.
+
+```{sql connection=db}
+alter table occurrences add column EventDate text default NULL;
+```
+
+```{sql connection=db}
+alter table occurrences add column Month text;
+```
+```{sql connection=db}
+alter table occurrences add column Day text;
+```
+```{sql connection=db}
+alter table occurrences add column VerbatimEventDate text default null;
+```
+```{sql connection=db}
+update occurrences set VerbatimEventDate = Dat2;
+```
+```{r}
+library(RSQLite)
+
+YEAR <- dbGetQuery(db, "SELECT distinct substr(dat2,1,4) as YEAR from occurrences order by YEAR")
+
+is.numeric(YEAR)
+YEAR<-as.numeric(YEAR[,1])
+is.numeric(YEAR)
+print(YEAR)
+
+```
+```{sql connection=db}
+update occurrences set Year = cast(substr(dat2, 1,4) as integer);
+
+
+```
+
+
+  + **Année :**
+
+
+```{sql connection=db}
+select min(year), max(year) from occurrences;
+
+```
+```{r echo=TRUE}
+
+Years<- dbGetQuery(db, "SELECT substr(dat2,1,4) as YEAR from occurrences where YEAR!='' order by YEAR")
+
+Years<-as.numeric(Years[,1])
+d <- density(Years)
+```
+```{r echo=TRUE}
+hist(Years, breaks=100, col="red", xlab="YEARS", 
+  main="Distribution tempo. des occurrences d'AQUABIO")
+```
+```{sql connection=db}
+update occurrences set Month = (ltrim(dat2, year))
+
+```
+```{sql connection=db}
+update occurrences set Month = (ltrim(month, '/'))
+
+```
+```{sql connection=db}
+update occurrences set Month = substr(month, 1, instr(month, '/'))
+```
+```{sql connection=db}
+update occurrences set Month = (rtrim(month, '/'))
+
+```
+```{sql connection=db}
+update occurrences set day = ltrim(dat2, year)
+
+```
+```{sql connection=db}
+update occurrences set day = ltrim(day, '/')
+
+```
+```{sql connection=db}
+update occurrences set day = ltrim(day, month)
+
+```
+```{sql connection=db}
+update occurrences set day = ltrim(day, '/')
+
+```
+```{sql connection=db}
+update occurrences set day='0'||cast(day as text) where length(day)=1
+```
+```{sql connection=db}
+update occurrences set month='0'||cast(month as text) where length(month)=1
+```
+
+**Le champ "Year" est OK -- Remarque : Aucune exclusion effectuée sur base de l'année jusque maintenant.**
+
+
+  + **Jour & mois :**
+
+```{sql connection=db}
+
+select min(month),max(month), min(day), max(day) from occurrences 
+```
+
+```{r echo=TRUE}
+Month <- dbGetQuery(db, "SELECT Month from occurrences")
+Months<-as.numeric(Month[,1])
+e <- density(Months)
+hist(Months, breaks=100, col="blue", xlab="Months", 
+  main="Distribution circanuelle des occurrences d'AQUABIO")
+```
+
+**Les champs "Month"/"Day"" sont ok -- REMARQUE : Aucune donnée n'a jamais été enregistrée en décembre**
+
+
+  + **EventDate :**
+
+Maintenant que les données jours/mois/années sont valides, il est possible de reconstruire la colonne "EventDate"" au format accepté par le portail GBIF (YYYY-MM-DD).
+
+```{sql connection=db}
+update occurrences set EventDate= Year||'-'||Month||'-'||day;
+```
+
+  + **Résumé et vérifaction des informations temporelles:**
+
+```{sql connection=db, max.print=15}
+select distinct Dat2 as Original, VerbatimEventdate, EventDate, Year, Month, Day from occurrences;
+```
+
+```{sql connection=db}
+select distinct length(eventdate) Nombre_digits from occurrences order by Nombre_digits 
+```
+
+**Les données temporelles sont complètes, sous un format correct (point de vue GBIF) et homogène.**
+
+
+***
+
+### OccurrenceID
+
+***Occurrence ID**: "An identifier for the Occurrence (as opposed to a particular digital record of the occurrence). In the absence of a persistent global unique identifier, construct one from a combination of identifiers in the record that will most closely make the occurrenceID globally unique".*
+
+**Il ne semble pas y avoir d'identifiant unique associé chaque enregistrement (occurrence) dans AQUABIO, ou celui-ci n'a pas été retrouvé (confirmation? celui-ci serait une solution prioritaire) ==> création d'un identifiant unique pour chaque enregistrement.**
+
+Pour créer un OccurrenceID, qui doit être unique pour chaque occurrence, il est possible de faire la concatcénation de l'identifiant de la station, de la date, de l'identifiant de l'échantillon MI (MI_ECHANT.REFECH), et d'un code numérique unique attribué au taxon (dans la table taxon) :
+
+  + **Création de l'ID :**
+
+Concaténation  des champs :  EventDate||-||SiteID||-||CollectionNumberMI||-||taxonid.
+
+```{sql connection=db}
+alter table Occurrences add column OccurrenceID default null ;
+```
+
+```{sql connection=db}
+update occurrences set OccurrenceID= eventdate||'-'||siteID||'-'||CollectionnumberMI||'-'||(select taxonid from taxons_tris where trim(lower(scientificname)) = trim(lower(occurrences.tax)))
+```
+
+  + **Vérifier qu'ils n'y ai pas d'IDs nuls/vides  :**
+
+```{sql connection=db}
+select occurrenceID from occurrences where OccurrenceID is null or OccurrenceID=''; -- aucune donnéee ayant Id manquant ou vide.
+```
+
+Aucune donnée ayant un Id manquant ou vide.
+
+  + **Vérifier que tous les IDs sont bien uniques :**
+
+```{sql connection=db, max.print=5}
+select occurrenceID, tax, count(*) Nombre_repetitions from occurrences group by occurrenceID order by Nombre_repetitions desc;
+```
+
+Il y a de très nombreux doublons/triplets/quadruplets/etc. (même taxon observé sur le même site à la même date et étiquetés avec le même numéro d'échantillon). Cela va jusqu'à un maximum de 4 répétitions (visites encodées plusieurs fois?). Une table de doulons est crée avant de supprimer ceux-ci du jeu de données.
+
+  + **Créer la table reprenant l'ensemble des doublons (garder une trace) :**
+  
+```{sql connection=db}
+drop table if exists doublons;
+```
+  
+```{sql connection=db}
+
+Create table Doublons as SELECT COUNT(*) AS NBR_DOUBLES, Tax, EventDate, SiteID, CollectionNumberMI, occurrenceID
+FROM   occurrences
+GROUP  BY Tax, EventDate, SiteID, CollectionNumberMI
+HAVING COUNT(*) > 1
+
+```
+
+```{sql connection=db}
+select count(*) from doublons; --1099 valeurs répétées dans AQUABIO, parfois jusque 4 fois.
+```
+
+  + **Créer Une colonne permettant de discriminer les entrées identiques (Occurrences.IDLocal)**
+  
+  + **Utiliser cette colonne pour supprimer les répétitions :**
+
+*Nombre de données d'occurrence avant la suppression des doublons;*
+
+```{sql connection=db}
+select count(*) as DonnéesavantSuppressionDoublons from occurrences ;
+```
+
+```{sql connection=db}
+DELETE
+FROM occurrences
+WHERE idlocal NOT IN (
+SELECT MAX(idlocal) FROM occurrences
+GROUP BY occurrenceid)
+```
+
+*Nombre de données d'occurrence après la suppression des doublons ;*
+
+```{sql connection=db}
+select count(*)  as DonnéesAprèsSuppressionDoublons from occurrences; -- le nettoyage laisse 52986 enregistrements
+```
+
+*Vérifier si il reste des données ayant plusieurs répétitions :*
+ 
+```{sql connection=db, max.print=5}
+select occurrenceID, tax, count(*) Nombre_repetitions from occurrences group by occurrenceID order by Nombre_repetitions desc;
+```
+
+
+**L'OccurrenceID (identifiant unique de l'occurrence) est bien spécifié et unique pour chaque enregistrement.**
+
+
+***
+### IdentifiedBy
+
+*A person, group, or organization who assigned the Taxon to the subject.*
+
+Il s'agit ici d'attribuer un nom à l'observateur (identificateur). Pour respecter la méthode qui souvent été utilisée au DEMNA, la valeur par défaut 'DEMNA-Hydrobiology unit' a été choisie.
+
+```{sql connection=db}
+alter table occurrences add column IdentifiedBy text default "DEMNA-Hydrobiology unit";
+```
+
+
+***
+### Habitat
+
+*A category or description of the habitat in which the Event occurred.*
+
+L'information est en français dans la BD AQUABIO (GEN_D_TYPOLO.LIBELL). Les traductions suivantes sont proposées afin d'avoir un champ habitat en anglais. Il reste possible de simplement ne pas partager cette information.
+
+*Traductions proposées pour les types de milieux :*
+
+```{sql connection=db}
+select * from habitat_dico ;
+```
+
+```{sql connection=db}
+alter table occurrences add column Habitat text default null;
+```
+```{sql connection=db}
+update occurrences set habitat =(select GBIF_term from habitat_dico where habitat=occurrences.TYPO_COURS_DO)
+```
+
+*Combien de données pour chaque milieu? :*
+
+```{sql connection=db}
+select distinct habitat, count(*) from occurrences group by habitat;
+```
+
+***
+###BasisOfRecord
+
+*The specific nature of the data record.*
+
+Il s'agit d'un champ obligatoire sur GBIF, utilisant des valeurs bien définies. Vu que les spécimens sont en collection, le terme le plus adapté est 'PreservedSpecimen'.
+
+```{sql connection=db}
+alter table occurrences add column BasisOfRecord text default 'PreservedSpecimen';
+```
+
+***
+###Elevation
+
+L'élevation est une information qui peut être intégrée au DarwinCore(DC term: Elevation) et présente dans la BD AQUABIO (variable GEN_SITE.ALTITUDE). Cependant, après discussion avec FrC, cette variable a été jugée peu relevante et ne sera donc pas integrée au jeu de données GBIF.
+
+
+***
+
+###EstablishmentMeans (repérage des espèces exotiques)
+
+*"The process by which the biological individual(s) represented in the Occurrence became established at the location.Recommended best practice is to use a controlled vocabulary (Examples	native, introduced, naturalised, invasive,managed)"*
+
+  + **Mapping des espèces exotiques - Motivation :**
+
+Le projet Trias est un projet Brain (https://osf.io/7dpgr/) regroupant les principales institutions orientées "biodiversité" du pays (INBO, *DEMNA*, Natagora, NatuurPunt, Plateforme Biodiversité belge, IRSNB, UGhent, VLIZ, etc. ) et vis à vis duquel le DEMNA a donc des engagements.
+
+Le projet vise à établir un flux de travail collaboratif sur le territoire belge afin de suivre dynamiquement la progression des espèces exotiques, identifier les espèces émergeantes, analyser les risques et en informer les décideurs.
+
+Le flux répétable sera basé sur le GBIF, et le travail du DEMNA est d'alimenter prioritairement le GBIF avec des données exotiques.
+
+*En pratique : ll me faut identifier les espèces exotiques dans le jeu d'occurrences afin de m'aligner aux lignes de conduites de publication du projet. Cette identifiation consiste en un marquage des taxons identifiés comme exotiques dans des listes spécifiques également publiées dans le cadre du projet TriAS  (https://osf.io/7dpgr/wiki/Datasets/).*
+
+
+  + **Ajout de la table de référence "exotiques" du projet TriAS :**
+
+```{sql connection=db, max.print= 10}
+select ScientificName, TaxonRank, datasetname, datasetid, establishmentmean, OccurrenceStatus from Trias_tax ;
+```
+
+  + **Combien de données et de taxons seraient identifiés comme 'exotiques' selon ces sources TrIAS? :**
+
+```{sql connection=db }
+select  count(tax) as Ndonnees, count(distinct(tax)) as NTaxons, (select datasetname from trias_tax where scientificname=occurrences.tax)as Exotique_Selon from occurrences 
+where trim(lower(tax)) in (select trim(lower(scientificname))from trias_tax where establishmentmean='introduced')group by Exotique_selon;
+
+```
+
+
+  + **Détail des espèces exotiques dans le jeu de données MI :**
+
+```{sql connection=db, max.print=30}
+select distinct(tax) as Taxon, count(tax)as Ndonnees, (select datasetname from trias_tax where scientificname=occurrences.tax)as Exotique_Selon from occurrences 
+where trim(lower(tax)) in (select trim(lower(scientificname))from trias_tax where establishmentmean='introduced') group by tax;
+```
+
+```{sql connection=db}
+alter table occurrences add column EstablishmentMeans text default null;
+```
+
+```{sql connection=db}
+update occurrences set establishmentMeans= 'Introduced' where trim(lower(tax)) in (select trim(lower(scientificname))from Trias_tax where establishmentmean='introduced' );
+;
+```
+
+**Deux sources de taxons exotiques "TrIAS" ont permis de repérer 2088 occurrences pour 32 taxons.**
+
+==> Ces taxons reconnus comme exotiques sont listés dans le répertoire du projet de publication :
+
+*X:/PUB-O3020300A2/NatureParTheme/GBIF/Hydrobiologie_MI/taxons_exotiques.csv*
+
+
+*Validation et adaptation de la liste de taxons exotiques effectuée par FrC en 2019.*
+
+
+***
+
+### Localisation -- *DecimalLongitude, DecimalLatitude, GeodeticDatum, VerbatimCoordinates VerbatimCoordinatesSystem, Locality, Municipality* 
+
+Ces champs du DarwinCore correspondent respectivement à la longitude(en WGS84), latitude (en wgs84), le système de coordonnées (par défaut :"WGS 84"), les coordonnées initiales ainsi que le système de coordonnées initial (par défaut : "Lambert 72"").   
+Les données géographiques sont encodées en L72, dans les champs "GEN_SITE.LAMBEX"& 
+"GEN_SITE.LAMBEY". La conversion en WGS84 se fait à l'aide du logiciel en ligne "Tcbel" (http://zoologie.umons.ac.be/tc/application/default.aspx).
+
+  + **Export des champs "GEN_SITE.LAMBEX"& "GEN_SITE.LAMBEY" pour leur conversion.**
+
+  + **Import de la table de résultats après conversion.**
+  
+==> Cette table est reprise dans le répertoire du projet de publication :
+
+*X:/PUB-O3020300A2/NatureParTheme/GBIF/Hydrobiologie_MI/conversions.csv*
+
+  + **Import des coordonnées converties dans les champs Darwincore.**
+```{sql connection=db, max.print=5}
+select orig, x, y , lat, lng from conversions;
+```
+```{sql connection=db}
+alter table occurrences add column DecimalLongitude text default null ;
+```
+```{sql connection=db}
+alter table occurrences add column DecimalLatitude text default null ;
+
+```
+```{sql connection=db}
+alter table occurrences add column VerbatimCoordinates text default null;
+
+```
+```{sql connection=db}
+alter table occurrences add column CoordinateUncertaintyInMeters real default null ;
+
+```
+```{sql connection=db}
+alter table occurrences add column GeodeticDatum text default 'WGS 84' ;
+
+```
+
+```{sql connection=db}
+update occurrences set VerbatimCoordinates = 'Lmb '||x||' '||y;
+```
+
+```{sql connection=db}
+alter table occurrences add column VerbatimCoordinateSystem text default 'Lambert 72' ;
+
+```
+```{sql connection=db}
+update occurrences set DecimalLongitude=(select lng from conversions where x=occurrences.x);
+
+```
+```{sql connection=db}
+--select * from conversions where y like '14129%' ;
+update occurrences set decimallongitude =6.001271 where decimallongitude is null;
+```
+```{sql connection=db, max.print=20}
+update occurrences set DecimalLatitude=(select lat from conversions where y=occurrences.y);
+```
+```{sql connection=db}
+update occurrences set decimallongitude=replace(decimallongitude,',','.')
+```
+```{sql connection=db}
+update occurrences set decimallatitude=replace(decimallatitude,',','.')
+```
+```{sql connection=db}
+select count(*) from occurrences where decimallongitude is null or decimallatitude is null ;
+```
+
+Aucune donnée sans valeur de longitude ou de latitude attribuée.
+
+  + **Carte de vérification des résultats en WGS84 :**
+  
+```{r}
+#install.packages(rworldmap)
+library(rworldmap)
+newmap <- getMap(resolution = "low")
+plot(newmap, xlim = c(2.4, 6.5), ylim = c(49.5, 51.6), asp = 1)
+library(RSQLite)
+
+
+Points<- dbGetQuery(db, "SELECT distinct cast(DecimalLongitude as real) as long, cast(DecimalLatitude as real)as lat from occurrences")
+
+points(Points$long, Points$lat, col = "red", cex = .6)
+
+
+```
+
+**L'ensemble de coordonnées a été converti en WGS 84. La projection semble correcte.**
+
+Les champs 'Locality, Municipality sont quant à eux déduis depuis les colonnes respectives 'GEN_D_LOCALI.LIBELL' et 'GEN_D_COMMUN.LIBELL' ;
+
+```{sql connection=db}
+alter table occurrences add column Locality text default null ;
+```
+```{sql connection=db}
+alter table occurrences add column Municipality text default null ;
+```
+```{sql connection=db}
+update occurrences set locality = localite;
+```
+```{sql connection=db}
+update occurrences set municipality = municipalite;
+```
+
+***
+
+###CoordinatesUncertaintyInMeters
+
+
+*"The horizontal distance (in meters) from the given decimalLatitude and decimalLongitude describing the smallest circle containing the whole of the Location. Leave the value empty if the uncertainty is unknown, cannot be estimated, or is not applicable (because there are no coordinates).Zero is not a valid value for this term."*
+
+
+*Example(s): "30" (reasonable lower limit of a GPS reading under good conditions if the actual precision was not recorded at the time), "71" (uncertainty for a UTM coordinate having 100 meter precision and a known spatial reference system).*
+
+
+```{sql connection=db, max.print=10}
+select distinct(prec) precisionxy, count(*)  from occurrences group by precisionxy ;
+```
+
+  + **la colonne DarwinCore n'accepte que des valeurs purement numériques. Afin d'ajouter ce champ à la publication, les conversions suivantes sont proposées pour adapter les valeurs de la colonne "GEN_D_PRECXY.LIBELL" :**
+
+```{sql connection=db}
+select * from conversions_incertitude;
+```
+
+```{sql connection=db}
+update Occurrences set CoordinateUncertaintyInMeters = '100'
+where prec = '<100';
+```
+```{sql connection=db}
+update Occurrences set CoordinateUncertaintyInMeters = '1000'
+where prec !='<100';
+```
+
+
+*Suite à discussion avec FrC, 1000 m d'imprécision est choisie comme valeur par défaut (pour 'cours d'eau' et là où l'information est manquante).*
+
+***
+
+### CollectionCode
+
+*"Collection Code: The name, acronym, code, or initialism identifying the collection or data set from which the record was derived."*
+
+Ici, il s'agit de donner un identifiant à la collection MI. La valeur "SPW-DEMNA-AQUABIO-MI"a été attribuée mais peut être changée à tout moment.
+
+```{sql connection=db}
+update occurrences set CollectionCode="SPW-DEMNA-AQUABIO-MI";
+```
+
+
+```{sql connection=db}
+select distinct collectionCode from occurrences ;
+```
+
+***
+
+
+### CollectionNumber 
+
+Numéro d'échantillon dans la collection. Il s'agit ici de reprendre la colonne de référenche de l'échantillon(MI_ECHANT.REFECH).
+
+```{sql connection=db}
+alter table Occurrences add column CollectionNumber text default null;
+```
+```{sql connection=db}
+update Occurrences set collectionNumber=CollectionNumberMI;
+```
+
+***
+
+###IndividualCount
+
+*L'information reprenant le nombre d'individus pour chaque entrée n'a pas été gardée après discussion avec FrC, il s'agirait d'un jeu de données 'presence only'. Il faut cependant supprimées les données où le compte = 0 (si ce sont effectivement des absences)*
+
+```{sql eval=FALSE, connection=db, include=FALSE}
+select * from occurrences where n=0 or n='' ;
+```
+
+***
+
+### Titre du jeu de données sur GBIF (DatasetName)
+
+Reprend le nom que l'on désire attribuer au jeu de données une fois sur GBIF. Modifiable à tout moment également.
+
+proposition :
+
+**"DEMNA : occurrences of macroinvertebrates in monitored surface water bodies of Wallonia"**
+
+
+```{sql connection=db}
+alter table occurrences add column DatasetName text default "DEMNA : occurrences of macroinvertebrates in monitored surface water bodies of Wallonia";
+```
+
+```{sql connection=db}
+select distinct datasetName from occurrences ;
+```
+
+***
+
+### Status de validation (IdentificationVerificationStatus) et sous-sélection des enregistrement validés.
+
+  + **IdentificationVerificationStatus :**
+  
+*"A categorical indicator of the extent to which the taxonomic identification has been verified to be correct."*
+
+
+Il s'agit ici du code de validation, exprimant le degré de confiance attribué à l'identification. Souvent, on utilise un code numérique se référer à différents niveaux de validation décris plus précisément dans les métadonnées.
+Cela peut être mis en relation avec le niveau de validation dans l'OFFH, mais l'avis de l'équipe Hydrobio est ici très important. Pour rappel, nous ne somme autorisés qu'à publier des données "validées". 
+
+L'information qui semble la plus proche dans AQUABIO semble être 
+R_PREESP_GEN.CODSTA
+GEN_D_STAVIS.LIBSTA
+```{sql connection=db}
+select distinct validation, validation_mean from occurrences;
+```
+
+En se basant sur la réponse de FrC ; *"Vu l’historique complexe de la BD, pour les MI, toutes les données taxonomiques antérieures à 2017 devraient être OK même si le statut de validation n’est pas « validé » dans Aquabio".*
+
+Comme toutes les données sont antérieures à 2017, il ne devrait pas y avoir de problème dans ce cas-ci, mais il faudrait faire attention pour les MAJ et si on décide de se baser sur un extrait plus récent d'AQUABIO pour cette première publication. Cependant, la colonne quant à la validation n'est pas gardée, celle-ci se référant plus au statu de l'encodage que de l'identification et n'est pas utilisée pour 'trier' les données publiables.
+
+***
+### Nettoyage final
+
+Beaucoup de champs ont été dédoublés afin de reformater l'information qu'ils contiennent. Cette dernière étape ne garde que les champs utiles au GBIF (pas les champs originaux) pour avoir une table 'finalisée', plus propre.
+
+
+```{sql connection=db}
+drop table if exists Occurrences2019 ;
+```
+
+
+```{sql connection=db}
+create table Occurrences2019 as select OccurrenceID, DatasetName,BasisOfRecord,'SPW-DEMNA' as InstitutionCode, CollectionCode,CollectionNumber, ScientificName,
+IdentifiedBy, EstablishmentMeans, EventDate, Year, Month, Day, VerbatimEventDate,Habitat, Municipality, Locality, DecimalLongitude, DecimalLatitude, CoordinateUncertaintyInMeters, GeodeticDatum,VerbatimCoordinates, VerbatimCoordinateSystem from occurrences;  
+```
+
+La table finale de données issues de cette préparation (Occurrences2019.csv) se trouve dans :
+
+**X:/PUB-O3020300A2/NatureParTheme/GBIF/Hydrobiologie_MI**
+
+***
+***
+
+# 4.Proposition de métadonnées (En)
+
+## 4.1. But:
+
+Le document de métadonnées décrit le jeu de données et en est indissociable pour la publication sur GBIF. Il s'agit d'un ensemble de champs d'informations, de descriptions qui est utilisé pour générer la 'page d'accueil d'un dataset. Le remplissage du document peut varier d'une publication à l'autre, être très concis ou très complet, et dans notre cas, il faut nous assurer d'y inclure toutes les communications/recommandations et précautions que nous aimerions partager avec un utilisateur qui découvrirait le jeu de données. 
+
+Exemple:  https://www.gbif.org/dataset/f145c27d-b1c3-4136-85b1-c21674d2d1c3.
+
+## 4.2. Proposition ;
+
+  + **Basic Metadata :**
+    + Title :  DEMNA : Occurrences of macroinvertebrates in monitored surface water bodies of Wallonia
+    
+    + Publishing organisation :Service Public de Wallonie – Département de l'Etude du Milieu Naturel et Agricole (SPW – DEMNA)
+    
+    + Data licence :Creative Commons Attribution (CC-BY) 4.0 License.
+
+![](C:/Users/46123/Pictures/ccby.png) 
+
+  + **Description : **
+  
+```
+  "DEMNA : Occurrences of macroinvertebrates in monitored surface water bodies of Wallonia" is an occurrence dataset created by the Hydrobiology unit of the Département de l'Etude du Milieu Naturel et Agricole (DEMNA-SPW). The data come from an ongoing network for the monitoring of the biological quality of water bodies in Wallonia, set up to undertake the EU Water framework directive requirements (since 2004). The Current monitoring network is composed of more than 440 sites, distributed among all streams (brooks to largest rivers/canals) from the hydrographic districts of the Meuse, the Scheldt, the Rhine and the Seine (Wallonia areas). Macroinvertebrates are one of the 4 indicator groups used to assess the biological quality of water bodies with macrophytes, diatoms, and fishes. The macroinvertebrate occurrences are derived from standardized IBGN/IBGA samplings, done according a methodology derived from T90-350 (2004) French standard (see Vanden Bossche & Usseglio-Polatera, 2005 in Hydrobiologia, 551: 253-271).Some IBGN/IBGA target taxa have been removed from the dataset, due to the low taxonomic resolution used (families,classes, orders). Some data can be previous to the set up of the current monitoring network, collected during other activies of the hydrobiology unit.More information is available upon request adressed to the DEMNA, and please note that this dataset does not replace any official convention on the provision of biological data delivered by the department.
+```  
+
+  + **Resource Contacts**
+  
+```   
+Maxime Coupremanne
+Administrative point of contact
+Data liaison offier
+Belgian Biodiversity Platform
+Avenue Maréchal Juin 23
+Gembloux 5030
+Namur
+Belgium
+maxime.coupremanne@○spw.wallonie.be
+``` 
+```
+Frédéric Chérot
+Administrative point of contact
+Expert
+Department d'étude du milieu naturel et agricole
+Avenue Maréchal Juin 23
+Gembloux 5030
+Namur
+Belgium
+frederic.cherot@spw.wallonie.be
+```
+
+```
+François Darchambeau
+Originator 
+Principal investigator
+Unit manager
+Department d'étude du milieu naturel et agricole
+Avenue Maréchal Juin 23
+Gembloux 5030
+Namur
+Belgium
+françois.darchambeau@○spw.wallonie.be
+```
+
+ + **Resource Creators :**
+
+```
+Hydrobiology Unit members
+All contributors
+Users
+Content providers
+Department d'étude du milieu naturel et agricole
+Avenue Maréchal Juin 23
+Gembloux 5030
+Namur
+Belgium
+```  
+  
+  + **Metadata provider :**  
+  
+```
+Frédéric Chérot
+Metadata author 
+Expert
+Department d'étude du milieu naturel et agricole
+Avenue Maréchal Juin 23
+Gembloux 5030
+Namur
+Belgium
+frederic.cherot@spw.wallonie.be
+```
+
+``` 
+Maxime Coupremanne
+Metadata author 
+Data liaison offier
+Belgian Biodiversity Platform
+Avenue Maréchal Juin 23
+Gembloux 5030
+Namur
+Belgium
+maxime.coupremanne@○spw.wallonie.be
+
+```
+
+
+  + **Purpose :**
+
+```
+Monitoring the biological quality of surface waterbodies in Wallonia for the EU water framework directive. MacroInvertebrates are used to determine IBGN / IBGA indicators, that are reported to Europe annually.
+```
+
+  + **Temporal scope :**
+```{sql connection=db}
+select min(eventdate),max(eventdate) from occurrences ;
+```
+
+
+
+```
+15 January 1990 - 29 September 2016
+```
+
+**Corriger après sélection des données valides!!**
+
+
+  + **Geographic scope :**
+```{sql connection=db}
+select max(Decimallongitude), min(decimallongitude), max(decimallatitude), min (decimallatitude) from occurrences ; -- Afin d'établir la boite de couverture sur GBIF
+```
+  
+```
+Wallonia, Southern Belgium.
+```
+
+  + **Taxonomic scope :**
+```{sql connection=db}
+select count(distinct(scientificName)) from occurrences ;
+```
+```{sql connection=db}
+select count(distinct(scientificname)) species_genres from Taxons_tris where justification like 'Esp%' union select count(distinct(scientificname)) genus from Taxons_tris where justification like 'gen%' ; -- 183 espèces, 228 genres.
+```
+  
+```
+Freshwater macroinvertebrates from Wallonia. The observations include 403 taxa divided between species (178)and genus (225) in the last version. The dataset does not match exactly what is expected for the IBGN/IBGA protocols, and has been adapted to be more scientifically relevant : family-level items (and higher) has been removed and some had hoc observations made by the laboratory staff might be included.
+```
+
+```
+Kingdom :Animalia animals
+Phylum : Annelida Ringed worms Arthropoda Arthropods Bryozoa Moss animals Cnidaria cnidarians Mollusca Molluscs Nematoda Roundworms Nematomorpha Gordian worms Platyhelminthes Flat worms Porifera Sponges
+```
+  + **Keywords :**
+
+```
+Surface Waters ; DEMNA ; Wallonia ; Macroinvertebrates ; Rivers 
+``` 
+
+  + **Methodology :**
+  
+      + **Study extent :**
+```      
+The current monitoring network is composed of more than 440 sampling stations distributed among the Wallonia. The concerned habitats include lentic streams, canals, and small streams to largest rivers from the hydrographic districts of the Meuse, the Scheldt, the Rhine and the Seine. The current network and method designs were set up in 2004, but the dataset also includes older data coming from different sampling events performed by the hydrobioloy unit.
+```
+      + **Sampling :**
+```      
+The station is defined as a section of the watercourse equal to ten times the width of the wet bed. Though, the river section length is adapted to sample eight different microhabitats. These microhabitats are characterized by different and well defined bottom substrates and surface velocity areas  distributed between lotic zones and lentic zones, between mineral substrates and vegetable substrates, between the bed, the left and the right banks. 
+```
+```
+Each substrate-velocity area is sampled 1 to 5 times, depending on the substrate, using a push net (‘Haveneau’) with a maximum 500µm mesh size. A surface of substrate equivalent to 1/20 m²  is sieved by the operator for each replicate.
+```
+```
+ Net samples, usually composed of a mixture of plants, mineral fragments, and macroinvertebrates, are dumped into a bucket of water once this part of the sampling is completed. The samples taken by hand are directly transferred to a bucket. 
+```
+```
+The solid contents of the bucket are resuspended and removed with a 500 μm mesh sieve. The sieve is then held in a light stream of water to remove the fine elements (vase, fine sand, etc.).
+```
+```
+ Then, the remaining contents of the sieve are introduced into a flask. If the sample contains fragile organisms or very small sized organisms (mainly Peloptera and Ephemeroptera), these organisms can be delicately packaged separately, if necessary in ethanol (fine Shellfish).
+```
+```
+ 	The sampling is sorted in the laboratory. Field operators determine whether the sample could be identified directly after being sorted. Otherwise, the sorting operator stores the sample in alcohol (10% formalin) pending further identification in the laboratory.
+```
+```
+ 	The final results only are imported into the unit database (‘AQUABIO’) once the sampling and determination are deemed valid. The samples are then labeled in plastic boxes (Manutan reference A025911 or equivalent) and stored permanently in the collection.
+```
+```
+ 	The sampling is then identified at the level requested for IBGN/IBGA determination.
+```
+
+      + **Quality Control :**
+```           
+ 	The Department is ISO9001 certified. 
+```
+      + **Method steps :**
+
+```      
+1. Selecting the sampling area and preparing the route.
+
+2. Selection of substrates to be surveyed by station.
+
+3. Sampling of substrates.
+
+4. Cleaning the sample and conditioning.
+
+5. Post-sampling identifications/verifications and counting.
+
+6. Report writing.
+
+7. Encoding in the Aquabio database.
+```
+
+  + **Additional info :**
+
+```  
+results of the waterbodies monitoring can be accessed through the catalog : http://geoapps.wallonie.be/CigaleInter/.
+
+```
+
+  + **Contacts :**
+  
+```
+Hydrobiology Unit
+All contributors
+Users
+Content providers
+Department d'étude du milieu naturel et agricole
+Avenue Maréchal Juin 23
+Gembloux 5030
+Namur
+Belgium
+```  
+  
+```
+François Darchambeau
+Originator 
+Principal investigator
+Unit manager
+Department d'étude du milieu naturel et agricole
+Avenue Maréchal Juin 23
+Gembloux 5030
+Namur
+Belgium
+françois.darchambeau@○spw.wallonie.be
+```
+```
+Frédéric Chérot
+Metadata author 
+Administrative point of contact
+Expert
+Department d'étude du milieu naturel et agricole
+Avenue Maréchal Juin 23
+Gembloux 5030
+Namur
+Belgium
+frederic.cherot@spw.wallonie.be
+```
+```
+Maxime Coupremanne
+Metadata author 
+Administrative point of contact
+Publisher
+Data liaison offier
+Belgian Biodiversity Platform
+Avenue Maréchal Juin 23
+Gembloux 5030
+Namur
+Belgium
+maxime.coupremanne@○spw.wallonie.be
+```
+  + **Resource logo URL :**
+
+![](C:/Users/46123/Pictures/logo_dgo3_0.png)   
+
+  + **Maintenance Description :**
+The ressource will be updated on an annual basis, following validation of field data from the previous year.
+
+***
+
+# 5. Notes pour les mises à jours ultérieures
+
+  + Refaire l'extraction.
+  + Ré-appliquer le script de préparation une fois validé.
+  + Attention : Re-evaluation des taxons, coordonnées converties, dates pour la publication et des informations utilisées pour les métadonnées.
+  
+***
+
+# 6.Notes MEMO 
+  + Déplacer l'ensemble des documents utiles sur : 
+
+**X:/PUB-O3020300A2/NatureParTheme/GBIF/Hydrobiologie_MI**
+
+  + Faire valider la procédure en l'expliquant en réunion.
+  + Quid de la validation, méthode?
+  + Publie t'-on l'entièreté de la période temporelle couverte ? (cf. la validation, voir avec Frc, FrD)
+  + Présenter (ou envoyer lien?)à toute la cellule une fois la version mise en ligne.
+  + Si tout est ok ==> même travail pour les poissons.
+
+***
