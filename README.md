@@ -14,14 +14,14 @@ It undertakes all animal taxa presents in DEMNA's exploitable databases (Natagor
 * Tax = raw encoding (might include some surprises)
 * Taxprio= name for usage (unify synonyms or misspelings together).
 * Taxo_id should be attributed to each distinct taxprio. But the count do not match with the count of distinct taxprio...
-* Ndata is the number of occurrences linked to the taxon, presents over all exploitable DEMNA databases.
-
-
 
 ## "DEMNA excotics" ;
 
-List of exotic species (internal to DEMNA : not complete enough). It should includes animals only.
+List of exotic species (internal to DEMNA : not complete enough). It should includes animals only. The full version is added in a second file, just in case.
+* 'Prioritaire' refers to species included in the Union concern list.
 
 
 ### 'format eel'
 Describes the structure under which we aggregate our differents databases to have a 'zoological fusion'.
+
+
