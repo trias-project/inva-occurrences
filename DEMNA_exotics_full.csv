@@ -1,0 +1,213 @@
+id	gr1	tax	taxprio	gr2	prioritaire
+1	Dicotylédones	Acer negundo	Acer negundo	Aceraceae	0
+2	Dicotylédones	Acer rufinerve	Acer rufinerve	Sapindaceae	0
+3	Dicotylédones	Ailanthus altissima	Ailanthus altissima	Simaroubaceae	0
+4	Oiseaux	Aix galericulata	Aix galericulata	Anatidae	0
+5	Oiseaux	Alopochen aegyptiaca	Alopochen aegyptiacus	Anatidae	0
+6	Dicotylédones	Ambrosia artemisiifolia	Ambrosia artemisiifolia	Asteraceae	0
+7	Poissons	Ameiurus melas	Ameiurus melas	Ictaluridae	0
+8	Dicotylédones	Amelanchier lamarckii	Amelanchier lamarckii	Malaceae	0
+9	Oiseaux	Anser indicus	Anser indicus	Anatidae	0
+10	Crustacés	Astacus leptodactylus	Astacus leptodactylus	Astacidae	0
+11	Dicotylédones	Aster lanceolatus	Aster lanceolatus	Asteraceae	0
+12	Dicotylédones	Aster novi-belgii	Aster novi-belgii	Asteraceae	0
+13	Dicotylédones	Aster sp.	Aster sp.	Asteraceae	0
+14	Dicotylédones	Aster x salignus (A. lanceolatus x novi-belgii)	Aster x salignus (A. lanceolatus x novi-belgii)	Asteraceae	0
+15	Ptéridophytes	Azolla filiculoides	Azolla filiculoides	Azollaceae	0
+16	Dicotylédones	Baccharis halimifolia	Baccharis halimifolia	Polygonaceae	1
+17	Monocotylédones	bambous	Bambuseae sp.	Poaceae	0
+18	Dicotylédones	Berberis aquifolium	Berberis aquifolium	Berberidaceae	0
+19	Dicotylédones	Mahonia aquifolium	Berberis aquifolium	Berberidaceae	0
+20	Dicotylédones	Bidens frondosa	Bidens frondosa	Asteraceae	0
+21	Oiseaux	Branta canadensis	Branta canadensis	Anatidae	0
+22	Dicotylédones	Buddleja davidii	Buddleja davidii	Buddlejaceae	0
+23	Poissons	Carassius gibelio	Carassius gibelio	Cyprinidae	0
+24	Dicotylédones	Cornus sericea	Cornus sericea	Cornaceae	0
+25	Dicotylédones	Cotoneaster ascendens	Cotoneaster ascendens	Malaceae	0
+26	Dicotylédones	Cotoneaster bullatus	Cotoneaster bullatus	Malaceae	0
+27	Dicotylédones	Cotoneaster conspicuus	Cotoneaster conspicuus	Malaceae	0
+28	Dicotylédones	Cotoneaster dammeri	Cotoneaster dammeri	Malaceae	0
+29	Dicotylédones	Cotoneaster dielsianus	Cotoneaster dielsianus	Malaceae	0
+30	Dicotylédones	Cotoneaster divaricatus	Cotoneaster divaricatus	Malaceae	0
+31	Dicotylédones	Cotoneaster fangianus	Cotoneaster fangianus	Malaceae	0
+32	Dicotylédones	Cotoneaster franchetii	Cotoneaster franchetii	Malaceae	0
+33	Dicotylédones	Cotoneaster hjelmqvistii	Cotoneaster hjelmqvistii	Malaceae	0
+34	Dicotylédones	Cotoneaster horizontalis	Cotoneaster horizontalis	Malaceae	0
+35	Dicotylédones	Cotoneaster integerrimus	Cotoneaster integerrimus	Malaceae	0
+36	Dicotylédones	Cotoneaster lacteus	Cotoneaster lacteus	Malaceae	0
+37	Dicotylédones	Cotoneaster rehderi	Cotoneaster rehderi	Malaceae	0
+38	Dicotylédones	Cotoneaster salicifolius	Cotoneaster salicifolius	Malaceae	0
+39	Dicotylédones	Cotoneaster simonsii	Cotoneaster simonsii	Malaceae	0
+40	Dicotylédones	Cotoneaster spec.	Cotoneaster sp.	Malaceae	0
+41	Dicotylédones	Cotoneaster sternianus	Cotoneaster sternianus	Malaceae	0
+42	Dicotylédones	Cotoneaster x suecicus (C. conspicuus x dammeri)	Cotoneaster x suecicus (C. conspicuus x dammeri)	Malaceae	0
+43	Dicotylédones	Cotoneaster x watereri (C. frigidus x salicifolius	Cotoneaster x watereri (C. frigidus x salicifolius	Malaceae	0
+44	Dicotylédones	Crassula helmsii	Crassula helmsii	Crassulaceae	0
+45	Oiseaux	Cygnus atratus	Cygnus atratus	Anatidae	0
+46	Monocotylédones	Cyperus eragrostis	Cyperus eragrostis	Cyperaceae	0
+47	Mammifères	Dama dama	Dama dama	Cervidae	0
+48	Mollusques bivalves	Dreissena polymorpha	Dreissena polymorpha	Dreissenidae	0
+49	Mollusques bivalves	Dreissena rostriformis bugensis	Dreissena rostriformis bugensis	Dreissenidae	0
+50	Dicotylédones	Duchesnea indica	Duchesnea indica	Rosaceae	0
+51	Monocotylédones	Eichhornia crassipes	Eichhornia crassipes	Pontederiaceae	1
+52	Dicotylédones	Elaeagnus angustifolia	Elaeagnus angustifolia	Elaeagnaceae	0
+53	Monocotylédones	Elodea canadensis	Elodea canadensis	Hydrocharitaceae	0
+54	Monocotylédones	Elodea nuttallii	Elodea nuttallii	Hydrocharitaceae	0
+55	Monocotylédones	Elodea spp	Elodea sp.	Hydrocharitaceae	0
+56	Dicotylédones	Epilobium ciliatum	Epilobium ciliatum	Onagraceae	0
+57	Crustacés	Eriocheir sinensis	Eriocheir sinensis	Varunidae	1
+58	Dicotylédones	Fallopia japonica	Fallopia japonica	Polygonaceae	0
+59	Dicotylédones	Fallopia sachalinensis	Fallopia sachalinensis	Polygonaceae	0
+60	Dicotylédones	Fallopia sp.	Fallopia sp.	Polygonaceae	0
+61	Dicotylédones	Fallopia x bohemica	Fallopia x bohemica	Polygonaceae	0
+62	Dicotylédones	Gunnera tinctoria	Gunnera tinctoria	Gunneraceae	0
+63	Coccinelles	Harmonia axyridis	Harmonia axyridis	Coccinellinae	0
+64	Dicotylédones	Helianthus tuberosus	Helianthus tuberosus	Asteraceae	0
+65	Crustacés	Hemigrapsus sanguineus	Hemigrapsus sanguineus	Varunidae	0
+66	Dicotylédones	Heracleum mantegazzianum	Heracleum mantegazzianum	Apiaceae	0
+67	Monocotylédones	Hyacinthoides hispanica	Hyacinthoides hispanica	Liliaceae	0
+68	Dicotylédones	Hydrocotyle ranunculoides	Hydrocotyle ranunculoides	Apiaceae	1
+69	Mammifères	Hydropotes inermis	Hydropotes inermis	Cervidae	0
+70	Dicotylédones	Impatiens balfourii	Impatiens balfouri	Balsaminaceae	0
+71	Dicotylédones	Impatiens capensis	Impatiens capensis	Balsaminaceae	0
+72	Dicotylédones	Impatiens glandulifera	Impatiens glandulifera	Balsaminaceae	0
+73	Dicotylédones	Impatiens parviflora	Impatiens parviflora	Balsaminaceae	0
+74	Monocotylédones	Lagarosiphon major	Lagarosiphon major	Hydrocharitaceae	1
+75	Monocotylédones	Lemna minuta	Lemna minuta	Lemnaceae	0
+76	Poissons	Lepomis gibbosus	Lepomis gibbosus	Centrarchidae	0
+77	Amphibiens	Lithobates catesbeianus	Lithobates catesbeianus	Ranidae	1
+78	Dicotylédones	Lonicera japonica	Lonicera japonica	Caprifoliaceae	0
+79	Dicotylédones	Ludwigia grandiflora	Ludwigia grandiflora	Onagraceae	1
+80	Dicotylédones	Ludwigia peploides	Ludwigia peploides	Onagraceae	1
+81	Dicotylédones	Ludwigia spp	Ludwigia sp.	Onagraceae	0
+82	Dicotylédones	Lupinus polyphyllus	Lupinus polyphyllus	Fabaceae	0
+83	Monocotylédones	Lysichiton americanus	Lysichiton americanus	Araceae	1
+84	Poissons	Micropterus dolomieu	Micropterus dolomieu	Centrarchidae	0
+85	Dicotylédones	Mimulus guttatus	Mimulus guttatus	Scrophulariaceae	0
+86	Mammifères	Muntiacus reevesi	Muntiacus reevesi	Cervidae	1
+87	Mammifères	Mustela vison	Mustela vison	Mustelidae	0
+88	Oiseaux	Myiopsitta monachus	Myiopsitta monachus	Psittacidae	0
+89	Mammifères	Myocastor coypus	Myocastor coypus	Myocastoridae	1
+90	Dicotylédones	Myriophyllum aquaticum	Myriophyllum aquaticum	Haloragaceae	1
+91	Poissons	Neogobius kessleri	Neogobius kessleri	Gobiidae	0
+92	Poissons	Neogobius melanostomus	Neogobius melanostomus	Gobiidae	0
+93	Poissons	Gobie indéterminé	Neogobius sp.	Gobiidae	0
+94	Mammifères	Nyctereutes procyonoides	Nyctereutes procyonoides	Canidae	0
+95	Dicotylédones	Oenothera biennis	Oenothera biennis	Onagraceae	0
+96	Dicotylédones	Oenothera glazioviana	Oenothera glazioviana	Onagraceae	0
+97	Dicotylédones	Oenothera biennis + Oenothera glazioviana	Oenothera sp.	Onagraceae	0
+98	Dicotylédones	Oenothera x fallax	Oenothera sp.	Onagraceae	0
+99	Mammifères	Ondatra zibethicus	Ondatra zibethicus	Microtidae	0
+100	Crustacés	Orconectes limosus	Orconectes limosus	Astacidae	1
+101	Crustacés	Orconectes virilis	Orconectes virilis	Astacidae	1
+102	Oiseaux	Oxyura jamaicensis	Oxyura jamaicensis	Anatidae	1
+103	Crustacés	Pacifastacus leniusculus	Pacifastacus leniusculus	Astacidae	1
+104	Dicotylédones	Parthenocissus inserta	Parthenocissus inserta	Vitaceae	0
+105	Dicotylédones	Parthenocissus quinquefolia	Parthenocissus quinquefolia	Vitaceae	0
+106	Dicotylédones	Parthenocissus spec.	Parthenocissus sp.	Vitaceae	0
+107	Dicotylédones	Persicaria wallichii	Persicaria wallichii	Polygonaceae	0
+108	Dicotylédones	Phytolacca americana	Phytolacca americana	Phytolaccaceae	0
+109	Poissons	Pimephales promelas	Pimephales promelas	Cyprinidae	0
+110	Poissons	Pimephales promelas auratus	Pimephales promelas auratus	Cyprinidae	0
+111	Monocotylédones	Pontederia cordata	Pontederia cordata	Pontederiaceae	0
+112	Mollusques gastérop.	Potamopyrgus antipodarum	Potamopyrgus antipodarum	Hydrobiidae	0
+113	Mollusques gastérop.	Potamopyrgus	Potamopyrgus sp.	Hydrobiidae	0
+114	Dicotylédones	Potentilla indica	Potentilla indica	Rosaceae	0
+115	Crustacés	Procambarus clarkii	Procambarus clarkii	Cambaridae	1
+116	Mammifères	Procyon lotor	Procyon lotor	Procyonidae	1
+117	Dicotylédones	Prunus laurocerasus	Prunus laurocerasus	Amygdalaceae	0
+118	Dicotylédones	Prunus serotina	Prunus serotina	Amygdalaceae	0
+119	Poissons	Pseudorasbora parva	Pseudorasbora parva	Cyprinidae	1
+120	Oiseaux	Psittacula krameri	Psittacula krameri	Psittacidae	0
+121	Dicotylédones	Quercus rubra	Quercus rubra	Fagaceae	0
+122	Amphibiens	Pelophylax ridibundus	Rana ridibunda	Ranidae	0
+123	Mammifères	Rattus norvegicus	Rattus norvegicus	Muridae	0
+124	Dicotylédones	Rhododendron ponticum	Rhododendron ponticum	Ericaceae	0
+125	Dicotylédones	Rhus typhina	Rhus typhina	Anacardiaceae	0
+126	Dicotylédones	Robinia pseudoacacia	Robinia pseudoacacia	Fabaceae	0
+127	Dicotylédones	Rosa rugosa	Rosa rugosa	Rosaceae	0
+128	Dicotylédones	Rudbeckia laciniata	Rudbeckia laciniata	Asteraceae	0
+129	Monocotylédones	Sagittaria latifolia	Sagittaria latifolia	Alismataceae	0
+130	Poissons	Sander lucioperca	Sander lucioperca	Percidae	0
+131	Algues	Sargassum muticum	Sargassum muticum	Sargassaceae	0
+132	Dicotylédones	Sarracenia purpurea	Sarracenia purpurea	Sarraceniaceae	0
+133	Mammifères	Sciurus carolinensis	Sciurus carolinensis	Sciuridae	1
+134	Mammifères	Sciurus niger	Sciurus niger	Sciuridae	1
+135	Dicotylédones	Senecio inaequidens	Senecio inaequidens	Asteraceae	0
+136	Dicotylédones	Solidago canadensis	Solidago canadensis	Asteraceae	0
+137	Dicotylédones	Solidago gigantea	Solidago gigantea	Asteraceae	0
+138	Dicotylédones	Solidago	Solidago sp.	Asteraceae	0
+139	Dicotylédones	Solidago sp.	Solidago sp.	Asteraceae	0
+140	Dicotylédones	Spiraea alba	Spiraea alba	Rosaceae	0
+141	Dicotylédones	Spiraea douglasii	Spiraea douglasii	Rosaceae	0
+142	Dicotylédones	Spiraea salicifolia	Spiraea salicifolia	Rosaceae	0
+143	Dicotylédones	Spiraea sp	Spiraea sp.	Rosaceae	0
+144	Dicotylédones	Spiraea x billardii	Spiraea x billardii	Rosaceae	0
+145	Mammifères	Tamias sibiricus	Tamias sibiricus	Sciuridae	1
+146	Oiseaux	Threskiornis aethiopicus	Threskiornis aethiopicus	Threskiornithidae	1
+147	Tortues	Trachemys scripta	Trachemys scripta	Emydidae	1
+148	Poissons	Umbra pygmaea	Umbra pygmaea	Umbridae	0
+149	Monocotylédones	Vallisneria spiralis	Vallisneria spiralis	Hydrocharitaceae	0
+150	Hyménoptères	Vespa velutina	Vespa velutina	Vespidae	1
+151		Akebia quinata	Akebia quinata		0
+152		Alternanthera philoxeroides	Alternanthera philoxeroides		0
+153		Ameiurus nebulosus	Ameiurus nebulosus		0
+154		Asclepias syriaca	Asclepias syriaca		0
+155		Aster salignus	Aster salignus		0
+156		Aster x salignus	Aster x salignus		0
+157		Bison bison	Bison bison		0
+158		Cabomba caroliniana	Cabomba caroliniana		1
+159		Callosciurus erythraeus	Callosciurus erythraeus		1
+160		Callosciurus erythraeus Pallas	Callosciurus erythraeus Pallas		0
+161		Callosciurus finlaysonii	Callosciurus finlaysonii		0
+162		Caprella mutica	Caprella mutica		0
+163		Carpobrotus spp.	Carpobrotus spp.		0
+164		Castor canadenis	Castor canadenis		0
+165		Cervus nippon	Cervus nippon		0
+166		Corvus splendens	Corvus splendens		1
+167		Crassostrea gigas	Crassostrea gigas		0
+168		Crepidula fornicata	Crepidula fornicata		0
+169		Echinocystis lobata	Echinocystis lobata		0
+170		Egeria densa	Egeria densa		0
+171		Fallopia bohemica	Fallopia bohemica		0
+172		Fallopia x bohemica (F. japonica x sachalinensis)	Fallopia x bohemica (F. japonica x sachalinensis)	Polygonaceae	0
+173		Fraxinus pennsylvanica	Fraxinus pennsylvanica		0
+174		Gaillardia grandiflora	Gaillardia grandiflora		0
+175		Gaillardia x grandiflora (G. aristata x pulchella)	Gaillardia x grandiflora (G. aristata x pulchella)		0
+176		Gunnera manicata	Gunnera manicata		0
+177		Heracleum persicum	Heracleum persicum		1
+178		Heracleum sosnowskyi	Heracleum sosnowskyi		1
+179		Herpestes javanicus	Herpestes javanicus		1
+180		Homarus americanus	Homarus americanus		0
+181		Ludwigia sp.	Ludwigia sp.		0
+182		Mephitis mephitis	Mephitis mephitis		0
+183		Microstegium vimineum	Microstegium vimineum		0
+184		Muntiacus reevesii	Muntiacus reevesii		1
+185		Mustella vison	Mustella vison		0
+186		Myriophyllum heterophyllum	Myriophyllum heterophyllum		0
+187		Nasua nasua	Nasua nasua		1
+188		Oenothera cambrica	Oenothera cambrica		0
+189		Oenothera fallax	Oenothera fallax		0
+190		Oenothera x fallax (O. glazioviana x biennis)	Oenothera x fallax (O. glazioviana x biennis)		0
+191		Parthenium hysterophorus	Parthenium hysterophorus		1
+192		Parthenocissus tricuspidata	Parthenocissus tricuspidata		0
+193		Perccottus glenii	Perccottus glenii		1
+194		Pennisetum setaceum	Pennisetum setaceum		0
+195		Procambarus sp.	Procambarus sp.		0
+196		Pueraria lobata	Pueraria lobata		0
+197		Solidago graminifolia	Solidago graminifolia		0
+198		Spiraea tomentosa	Spiraea tomentosa		0
+199		Spiraea billardii	Spiraea billardii		0
+200		Spiraea x billardii (S. alba x douglasii)	Spiraea x billardii (S. alba x douglasii)		0
+201		Persicaria perfoliata	Persicaria perfoliata		1
+202		Pueraria montana	Pueraria montana		1
+203		Lysichiton camtschatcensis	Lysichiton camtschatcensis		0
+204		Lysichiton americanus x camtschatcensis	Lysichiton americanus x camtschatcensis		0
+205		Xenopus laevis	Xenopus laevis		0
+206		Celastrus orbiculatus	Celastrus orbiculatus		0
+207		Spartina pectinata	Spartina pectinata		0
+208		Spartina x townsendii	Spartina x townsendii		0
+209		Cotoneaster (all species except C. integerrimus)	Cotoneaster (all species except C. integerrimus)		0
+210		Saracenia purpurea	Saracenia purpurea		0
+211		Impatiens edgeworthii	Impatiens edgeworthii		0
+212	Crustacés	Procambarus fallax	Procambarus fallax	Cambaridae	1
