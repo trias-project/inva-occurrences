@@ -1,39 +1,22 @@
 # DEMNA-occurrences
 
 Data publication DEMNA
+ATM : files are ready, waiting green light from DEMNA for the 2 publications. So datasets are stored here, with respective preparation files (Rmd).
 
-## "MI" FILES ;
+## 'MI' files
 
-Are linked to first step for the publication of the 'AQUABIO' database. This database will be published in its integrality so exotic species will not be included into 'Exotic Animals in Wallonia' publication. MI is one of the 3 collections of the database that will have it's own GBIF publication (with fishes and macrophytes, after validation of the procedure the 2 others will follow : same steps for much much cleaner collections). 
+are the files linked to the publication of the Hydrobiology Unit at DEMNA. They accepted to publish the entire content of the database, with most of the exotic species datas in a 'Macro invertebrates collection publication' . Exotic species spoted in this dataset : 2088 records for 32 taxas (among 141.000 records of 466 taxa).
 
-Target publication = end of April 2019.
-
-## "Fauna_Taxo" ;
-
-It undertakes all animal taxa presents over all DEMNA's exploitable databases (Natagora, AQUABIO, and other databases not to include are already removed). Should only concern animals & shrooms. 
-* Tax = raw encoding (might include some surprises)
-* Taxprio= name for usage (unify synonyms or misspelings together). It should follow the same syntax rules for all species names but it is not always the case...
-* Taxo_id should be attributed to each distinct taxprio. But the count do not match with the count of distinct taxprio...
-
- **TIP** : previous to do a taxa names comparison (eg. with unified checklist), I remove all ('sp.','spp.'sspp.','group', 'S.L', dobles spaces, etc.) from the columns tax & taxprio  to better fit a (genus||specificEpithet||InfraspecificEpithet) synthax. Also removing spaces at the start and at the end. There are many subtilities to identify accross DEMNA's taxa names that can alter the SQL string comparison...
-
-Find and mark all exotic species among this list would be a very great input. Automated matching with SQL will match many, but the real problem are the one that do not match : is it really a native species? is it a synonym of a exotic specie? An invalid entry?
-
-
+### Status : Ready, still waiting the formal publicaiton green light from the unit manager (12/06).
 
 
 ## "DEMNA excotics" ;
 
-List of exotic species (internal to DEMNA : not complete enough). It should includes animals only. The full version is added in a second file, just in case.
-* 'Prioritaire' refers to species included in the Union concern list.
+This is the core file for the publication of exotic animals data from DEMNA. This way of publishing will not be maintened in the very long term but to fit with june deadline, we have to aggregate exotic taxa records from many databases (that would each need a lot of work to be published individually) and focus on their cleaning/preparation.
 
+-Based on unified checklist taxa (more sources for first update before june 30)
+- 6147 records of 45 Taxa
 
-## 'format eel'
-Describes the structure under which we aggregate our differents databases to have a 'zoological fusion'.
-
-
-### 'Taxons_trias'
-* Imported from Trias Unified checklist.
-* 'CanonicalName' = reformated to better match with the syntaxic rules for writting taxa names at DEMNA (genus||specificEpithet||InfraspecificEpithet) and so to subselect these taxa for publication.  
+### Status : ALso all work done, waiting for validation with 2 weeks delay... 
 
 
