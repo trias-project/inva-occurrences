@@ -15,7 +15,7 @@ are the files linked to the publication of the Hydrobiology Unit at DEMNA. They 
 This is the core file for the publication of exotic animals data from DEMNA. This way of publishing will not be maintened in the very long term but to fit with june deadline, we have to aggregate exotic taxa records from many databases (that would each need a lot of work to be published individually) and focus on their cleaning/preparation.
 
 -Based on unified checklist taxa (more sources for first update before june 30)
-- 6147 records of 45 Taxa
+- 6145 records of 45 Taxa
 
 ### Status : ALso all work done, waiting for validation with 2 weeks delay... 
 
