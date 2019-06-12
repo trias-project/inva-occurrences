@@ -5,7 +5,7 @@ ATM : files are ready, waiting green light from DEMNA for the 2 publications. So
 
 ## 'MI' files
 
-are the files linked to the publication of the Hydrobiology Unit at DEMNA. They accepted to publish the entire content of the database, with most of the exotic species datas in a 'Macro invertebrates collection publication' . Exotic species spoted in this dataset : 2088 records for 32 taxas (among 141.000 records of 466 taxa).
+are the files linked to the publication of the Hydrobiology Unit at DEMNA. They accepted to publish the entire content of the database, with most of the exotic species datas in a 'Macro invertebrates collection publication' . Exotic species spoted in this dataset : 2088 records for 32 taxas (among 137.000 records of 466 taxa).
 
 ### Status : Ready, still waiting the formal publicaiton green light from the unit manager (12/06).
 
