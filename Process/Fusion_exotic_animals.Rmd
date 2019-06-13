@@ -1,0 +1,1643 @@
+---
+title: 'Projet de publication GBIF "DEMNA : Exotic animal occurrences in Wallonia'
+author: "Maxime Coupremanne"
+date: "25 mars 2019"
+output:
+  word_document:
+    fig_caption: yes
+    highlight: espresso
+    toc: yes
+    toc_depth: 4
+  html_document:
+    code_folding: hide
+    highlight: espresso
+    theme: united
+    toc: yes
+    toc_depth: 4
+  pdf_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+![](C:/Users/46123/Pictures/bbpfl.png) 
+
+#1. Conexte
+
+**Dans le cadre du projet TrIAS, le DEMNA s'est engagé contractuellement à publier ses données de distribution des espèces exotiques sur GBIF. Les taxons concernés sont listés dans le cadre de ce projet TrIAS, avec également le portail GBIF comme outil de diffusion.** 
+
+La première partie de ce rapport restranscrit et détaille un ensemble de manipulations (scripts SQL principalement) permettant le flux de ces données depuis nos bases de données vers une publication GBIF dédiée aux espèces exotiques animales (cadre TrIAS).
+Concrètrement, c'est un flux répétable de manipulations s'appliquant sur une fusion zoologique (SQLite, format eel) et génerant un jeu de données d'occurrences pour les animaux exotiques, prêt à être directement importé sur GBIF. Le principe est d'ouvrir les vannes pour une publication le plus rapidement possible même si une très faible fraction des données remplit les conditions nécéssaires. Séparément, les avancées dans les référentiels d'espèces exotiques, la confidentialité et la validation des données doit se faire en amont (dans les BD sources) et il suffira de re-executer ce script pour mettre à jour la publication du côté GBIF (voir point 5).  
+
+
+Afin que toute la procédure de publication soit concentrée dans ce document, une seconde partie est dédiée aux métadonnées qui décriront ce jeu de données une fois sur GBIF, après validation.
+
+
+#2. Méthode
+
+##2.1. Préparation du jeu d'occurrences d'animeaux exotiques
+
+*Série de manipulations répétables sur une fusion zoologique en SQLite:*
+
+* Géneration  d'une table d'occurrences copie de la table EEL.
+* Sélection des espèces exotiques TrIAS et des invasives de la liste DEMNA.
+* Sélection des sources de données à prendre en compte.
+* Sélection des données validées.
+* Formatage de la sélection au Format DarwinCore et contrôle du contenu. Cette partie est très orientée 'technique' et est assez conséquente :lecture pour public avertit.
+* Résumé des modifications et du jeu de données obtenu.
+
+
+##2.2. Edition des métadonnées
+
+
+Le document de métadonnées décrit le jeu de données et en est indissociable pour la publication sur GBIF. Il s'agit d'un ensemble de champs d'informations, de descriptions qui est utilisé pour générer la 'page d'accueil d'un dataset. Le remplissage du document peut varier d'une publication à l'autre, être très concis ou très complet. Dans notre cas, il faut nous assurer d'y inclure toutes les communications/recommandations et précautions que nous aimerions partager avec un utilisateur qui découvrirait le jeu de données pour qu'il puisse s'en approprier les subtilités par lui-même. 
+
+Exemple:  https://www.gbif.org/dataset/f145c27d-b1c3-4136-85b1-c21674d2d1c3.
+
+***
+***
+
+#3. Préparation du jeu d'occurrences d'animeaux exotiques
+
+
+Le but est de créer un jeu d'occurrences reprenant uniquement les espèces exotiques. Il s'agit donc de sélectionner les données cibles et de traduire le format d'encodage EEL au format GBIF (DarwinCore). 
+
+***
+
+##3.1. Générer la table d'occurrences à partir de la table EEL.
+
+Pour éviter qu'une mauvaise manipulation impacte tous les utilisateurs d'une fusion zoologique et les lenteurs du réseau, la dernière fusion zoologique en date est copiée en local. Cette nouvelle table 'occurrences' sera un équivalent de la table EEL de la fusion zoologique mais ne contenant que des occurrences **validées** de taxons **exotiques** et issues des **BD pouvant être inclues** dans la publication (voir points 3.2->3.4).
+
+```{r}
+#Connection à la DB locale
+library(DBI)
+db <- dbConnect(RSQLite::SQLite(), dbname = "C:/Users/46123/Desktop/Exotic Fauna/fusion_zoologie_20190312.sqlite")
+```
+```{sql connection=db}
+--Dupliquer la table eel (toutes occurrences) afin de ne pas altérer les données originales en cas de fausse manipulation. La table dans laquelle le jeu d'occurrences sera affiné est nommée "Occurrences"--
+DROP TABLE IF EXISTS OCCURRENCES;
+```
+```{sql connection=db}
+CREATE TABLE OCCURRENCES AS SELECT * FROM EEL ;
+```
+**Nombre de données d'occurrence dans la fusion zoologique:**
+
+```{r}
+library(RSQLite)
+NDonnees_origine<- dbGetQuery(db, "SELECT count(*)NDonnees_origine from occurrences")
+NDonnees_origine
+```
+
+**Nombre de taxons dans la fusion zoologique:**
+
+```{r}
+NTaxons_origine<- dbGetQuery(db, "SELECT count(distinct taxprio) NTaxons_origine from occurrences")
+NTaxons_origine
+```
+
+***
+
+##3.2. Sélection des taxons exotiques
+
+Deux référentiels sont utilisés pour reconnaitre les taxons exotiques à garder dans le jeu d'occurrences pour GBIF. Il y a la table 'Dico_taxa_invasives', déjà inclue dans les BD 'fusions zoologiques'. Un second référentiel, la liste unifiée des espèces exotiques en Belgique établie dans le cadre du projet TrIAS, doit également être utilisé. Le repérage des taxons se fera par comparaison des noms latins canoniques (sur base de taxprio-nom prioritaire du taxon- et facultativement de 'tax'-encodage brut-).
+
+
+###3.2.1. Référentiels d'espèces exotiques
+
+####a) Taxons exotiques TrIAS
+
+[La liste unifiée des espèces exotiques en Belgique](https://www.gbif.org/dataset/6d9e952f-948c-4483-9807-575348147c7e) est utilisée comme première référence. Les documents relatifs à sa création sont disponibles sur [GitHub](https://github.com/trias-project/unified-checklist/tree/master/data/processed). 
+
+
+* La table 'Taxons_trias' est importée dans la fusion SQLITE depuis le fichier csv présent dans le répertoire du projet (MAJ simples).
+```{sql eval=FALSE, connection=db, include=FALSE}
+drop table if exists taxons_trias;
+```
+
+* Les taxons de plantes exotiques inclus dans cette référence sont supprimés pour mieux correspondre à ce qui doit se trouver dans la fusion zoologique. Les champignons sont gardés car présents dans la fusion .
+
+```{sql connection=db}
+delete from taxons_trias where kingdom='Plantae'
+```
+
+* Le nom de taxon est décliné/divisé sous différentes colonnes : 'Scientificname' (avec auteur + année), 'genus', 'specificEpithet', 'infraspecificHepithet'.
+La solution la plus adaptée pour coller à la synthaxe du DEMNA (taxprio) serait de concaténer les deux/trois dernières colonnes sous un nouveau champ : 'CanonicalName'. Ce champ peut être reconsruit facilement (uniquement des genres/espèces et sous-espèces sont présents) et pourra ensuite être comparé à taxprio pour repérer les taxons exotiques. 
+
+```{sql eval=FALSE, connection=db, include=FALSE}
+alter table taxons_trias add column canonicalName text default null;
+```
+```{sql connection=db}
+update taxons_trias set canonicalName = Null;
+```
+```{sql connection=db}
+update taxons_trias set canonicalName = genus||' '||specificepithet where taxonrank= 'SPECIES';
+```
+```{sql connection=db}
+update taxons_trias set canonicalName = genus where taxonrank= 'GENUS';
+```
+```{sql connection=db}
+update taxons_trias set canonicalName = genus||' '||specificepithet||' '||infraspecificepithet where taxonrank= 'SUBSPECIES';
+```
+```{sql connection=db}
+update taxons_trias set canonicalName = genus||' '||specificepithet||' '||infraspecificepithet where taxonrank= 'VARIETY';
+```
+
+* Comme le repérage des espèces exotiques se fait par correspondance parfaite entre des chaines de caractères (noms latins), il faut suivre exactement les mêmes règles de syntaxe pour optimiser les chances d'avoir un matching. Le champ 'CanoncicalName' de la référence TrIAS peut être utilisé pour identifier les taxons dans EEL.
+
+**Table 1 : Préparation du champ 'CanonicalName'dans la référence TrIAS pour la comparaison :**
+
+```{sql connection=db, max.print=3}
+select  kingdom, phylum,taxonrank,scientificname, CanonicalName, genus, specificepithet, infraspecificepithet from taxons_trias ORDER BY RANDOM(); 
+```
+```{sql eval=FALSE, connection=db, include=FALSE}
+select count(*) from taxons_trias ;
+```
+
+**Table 2 : Répartition taxo. de la référence d'animaux exotiques Trias (incl. champignons) :**
+
+```{sql echo=FALSE, connection=db}
+select kingdom,Phylum, count(*) N from taxons_trias group by phylum order by N desc ;
+```
+
+
+**Table 3 : Distribution des rangs taxo. pour les taxons exotiques repris dans la référence TrIAS :**
+
+
+```{sql connection=db}
+select TaxonRank as rang_taxo,count(*)Ndonnees from taxons_trias group by taxonrank order by Ndonnees desc;
+```
+
+**La référence TrIAS comprend 371 taxons, dont 9 genres, 357 espèces et 5 sous-espèces. 21 taxons sont des mycètes. La colonne 'CanonicalName' servira à identifier les espèces présentes dans la fusion zoologique.**  
+
+***
+
+####b) Invasives DEMNA
+
+**La table 'Dico_taxa_invasives' sera également utilisée pour identifier des taxons exotiques à inclure dans la publication. Cette denière est déjà intégrée par Yvan B. dans la fusion.**
+
+***
+
+###3.2.2. Formater les champs servant à la comparaison
+
+*  Le champ 'nom canonique' de la référence TrIAS qui servira à la comparaison est simplifié au maximum et ne contient aucune référence au rang/incertitude (pas de 'sp.', 'spp.', 'groupe', 'sspp.', 's.l.', etc.). Ces mentions doivent donc être éliminées de la colonne 'Taxprio' (enfin plutôt sur une copie de ce champ,'taxprio_bis', pour de ne pas altérer les valeurs d'origine qui seront également utilisées pour la comparaison).
+
+
+```{sql connection=db}
+alter table occurrences add column taxprio_bis text default null;
+```
+```{sql connection=db}
+update occurrences set taxprio_bis = taxprio;
+```
+```{sql connection=db}
+update occurrences set taxprio_bis = replace(taxprio_bis, 'cf.','');
+```
+```{sql connection=db}
+update occurrences set taxprio_bis = replace(taxprio_bis, 'aff.','');
+```
+```{sql connection=db}
+update occurrences set taxprio_bis = replace(taxprio_bis, 'sp.','');
+```   
+```{sql connection=db}
+update occurrences set taxprio_bis = replace(taxprio_bis, ' ssp ','');
+``` 
+```{sql connection=db}
+update occurrences set taxprio_bis = replace(taxprio_bis, ' s.l.','');
+``` 
+
+* Les possibles espaces surnuméraires (doubles espaces, en début/fin de taxon) sont supprimés de toutes les colonnes qui serviront à comparer les listes de taxons entre-elles (tax, taxprio, taxprio_bis et canonicalName pour la référence Trias).
+
+```{sql connection=db}
+update occurrences set tax=trim(tax)
+```
+```{sql connection=db}
+update occurrences set tax = replace(tax, '  ',' ');
+``` 
+
+```{sql connection=db}
+update occurrences set taxprio=trim(taxprio)
+```
+```{sql connection=db}
+update occurrences set taxprio = replace(taxprio, '  ',' ');
+``` 
+
+```{sql connection=db}
+update dico_taxa_invasives set tax=trim(tax)
+```
+```{sql connection=db}
+update dico_taxa_invasives set tax = replace(tax, '  ',' ');
+``` 
+
+```{sql connection=db}
+update dico_taxa_invasives set taxprio=trim(taxprio)
+```
+```{sql connection=db}
+update dico_taxa_invasives set taxprio = replace(taxprio, '  ',' ');
+``` 
+```{sql connection=db}
+update occurrences set taxprio_bis=trim(taxprio_bis)
+```
+```{sql connection=db}
+update occurrences set taxprio_bis = replace(taxprio_bis, '  ',' ');
+``` 
+```{sql connection=db}
+update taxons_trias set canonicalname=trim(canonicalname)
+```
+```{sql connection=db}
+update taxons_trias set canonicalname = replace(canonicalname, '  ',' ');
+``` 
+
+**Les champs de noms de taxons suivent des syntaxes communes, ce qui favorise le repérage des exotiques en SQL.**
+
+***
+
+###3.2.3 Matching (correspondances)
+
+* Les occurrences de taxons identifiés dans la liste d'espèces exotiques TrIAS sont marquées.
+
+```{sql connection=db}
+alter table occurrences add column exotic text default null;
+```
+```{sql connection=db}
+Update occurrences set exotic ='TrIAS' where lower(tax) in (select lower(canonicalname) from taxons_trias) or lower(taxprio) in (select lower(canonicalname) from taxons_trias)or lower(taxprio_bis) in (select lower(canonicalname) from taxons_trias);
+```
+```{sql connection=db}
+Update occurrences set exotic ='TrIAS' where tax in (select canonicalname from taxons_trias) or taxprio in (select canonicalname from taxons_trias)or taxprio_bis in (select canonicalname from taxons_trias);
+```
+
+* Les espèces exotiques reprises dans 'dico_taxa_invasives' sont marquées.
+
+```{sql connection=db}
+alter table occurrences add column Invasive text default null
+```
+
+```{sql connection=db}
+Update occurrences set Invasive = 'DEMNA' where lower(tax) in (select lower(tax) from dico_taxa_invasives) or lower(taxprio) in (select lower(taxprio) from dico_taxa_invasives)or lower(tax) in (select lower(taxprio) from dico_taxa_invasives)or lower(taxprio) in (select lower(tax) from dico_taxa_invasives);
+```
+```{sql connection=db}
+Update occurrences set Invasive='DEMNA' where tax in (select tax from dico_taxa_invasives) or taxprio in (select taxprio from dico_taxa_invasives);
+```
+
+* Les occurrences de taxons non-reconnus comme exotiques (selon le croisement avec les références) sont supprimées.
+```{sql connection=db}
+delete from occurrences where exotic is null AND invasive is null ;
+```
+
+**Nombre de données d'occurrence pour des taxons exotiques reconnus dans les références :**
+
+```{r}
+NDonnees_exotiques<- dbGetQuery(db, "SELECT count(*)NDonnees_exotiques from occurrences")
+NDonnees_exotiques
+```
+
+**Nombre de taxons exotiques reconnus dans les références :**
+ 
+```{r}
+NTaxons_exotiques<- dbGetQuery(db, "SELECT count(distinct taxprio) NTaxons_exotiques from occurrences")
+NTaxons_exotiques
+```
+
+**Ces chiffres sont susceptibles de diminuer en écartant les sources de données qui ne doivent pas être prises en compte, en isolant les données validées et en nettoyant la table.**
+
+***
+
+##3.3. Sélection des sources de données
+
+Il faut ici écarter les sources de données qui doivent être publiées en parallèle sur GBIF (AQUABIO, Natagora) ou qui ne peuvent simplement pas être inclues dans la publication(conventions ou pas). Si certaines sources ne doivent pas être reprises, c'est dans cette section qu'il faut les lister. 
+
+**Table 4 : Sources de données refusées :**
+
+```{sql connection=db}
+select occurrences.source_file_id, sources.fi_nom, count(*)NdonneesExotiques  from occurrences left join sources on sources.fi_id=occurrences.source_file_id where source_file_id in ('43','7','4','5','11','54','52','56','57','62','63', '61','42') group by source_file_id order by Ndonneesexotiques desc
+```
+
+```{sql connection=db}
+delete from occurrences where source_file_id in ('43','7','4','5','11','54','56','57','62','63', '52','61','42');
+```
+
+**Table 5 : Sources de données intégrées :**
+
+```{sql connection=db, max.print=70}
+select occurrences.source_file_id, sources.fi_nom, count(*)NdonneesExotiques  from occurrences left join sources on sources.fi_id=occurrences.source_file_id group by source_file_id order by Ndonneesexotiques desc;
+```
+
+**Nombre de données d'occurrence après la sélection des sources :**
+
+```{r}
+NDonnees_dispo<- dbGetQuery(db, "SELECT count(*)NDonnees_dispo from occurrences")
+NDonnees_dispo
+```  
+
+**Nombre de taxons après la sélection des sources :**
+
+```{r}
+NTaxons_dispo<- dbGetQuery(db, "SELECT count(distinct taxprio) NTaxons_dispo from occurrences")
+NTaxons_dispo
+```
+
+*Accord Augustin Smooth :*
+
+*Accord Cammaerts:* Obtenu pour toutes les données exotiques (discussion du 9/05/2019).
+
+**La suppression de certaines sources est effectuée. Les données validées doivent être maintenant isolées.**
+
+***
+
+##3.4. Sélection des données validées
+
+* Les données dont le code de validation est inclu dans [1,4,5] sont gardées. Le reste est supprimé à cette étape.
+
+```{sql connection=db}
+delete from occurrences where validation not in ('1','4','5');
+```
+
+```{r}
+NTaxons_Valides<- dbGetQuery(db, "SELECT count(distinct taxprio) NTaxons_Valides from occurrences")
+
+```
+```{r}
+NDonnees_Valides<- dbGetQuery(db, "SELECT count(*) NDonnees_Valides from occurrences")
+
+```
+
+**La sélection des données cibles pour la publication est terminée. Il reste a transformer le format de cette sélection vers le DarwinCore tout en uniformisant le contenu des champs diffusés.** 
+
+***
+
+##3.5. Formattage en DWC
+
+Cette section est purement technique, concerne la mise en forme des données sous-sélectionnées (Occurrences validées d'animaux exotiques dans les BD diffusables). Il s'agit de renommer les champs (suivre un [format d'encodage DarwinCore](http://rs.tdwg.org/dwc/terms/)), et de reformuler le contenu pour suivre le vocabulaire conseillé (valeurs des champs).
+
+
+###3.5.1. Mapping des champs
+
+Les champs de types 'remarque' ne sont pas inclus. Les noms d'auteur et d'identificateur de la donnée sont remplacés par des valeurs par défaut. Les données confidentielles sont résumées au carré ifbl1.
+
+
+```{sql connection=db}
+drop table if exists dwcocc;
+```
+
+```{sql connection=db}
+
+create table DWCOcc (
+OccurrenceID text,
+Modified text,
+EventRemarks text,
+BasisofRecord text default 'HumanObservation',
+ifbl text,
+EstablishmentMean text default 'Introduced',
+Conf text, -- not DWC but needed for susbselect data we can share
+CollectionCode text,
+DecimalLongitude real,
+DecimalLatitude real,
+VerbatimLongitude int,
+VerbatimLatitude int,
+CoordinateUncertaintyInMeters int, -- station relative != if x,y.observation used 
+Sex text,
+Datum text default 'WG8S',
+IndividualCount integer,
+DataGeneralizations text default 'Subselection of  introduced species within a compilation of datasets',
+VerbatimCoordinatesystem text,
+DataSetName text default 'DEMNA : Exotic animal occurrences in Wallonia' ,
+fips text,
+StateProvince text,
+spec_id integer,
+stat_id integer,
+spec_id_orig integer,
+cond_id integer,
+Locality text,
+GBIFtaxoMatch text,
+VerbatimScientificName  text,
+LifeStage text,
+Behavior text,
+EventID integer,
+RecordedBy text,
+OrganismsQuantity real,
+OrganismsQuantityType text,
+CatalogNumber text,
+Country text default 'Belgium',
+CountryCode text default 'BE',
+CanonicalName text,
+ScientificName text,
+SpecificEpithet text -- 
+DateIdentified text,-- 
+Year text, -- used to reformate date
+Month text, -- same
+Day text, -- same
+EventDate text,
+IdentificationRemarks text,
+IdentificationVerificationStatus text,
+IdentifiedBy text,
+Municipality text,
+VerbatimCoordinates text,
+VerbatimElevation real,
+VerbatimEventDate text, -- = DateIdentified (on the field).
+LocationRemarks text,
+SamplingProtocol text,
+OccurrenceRemarks text,
+DeterminationID integer,
+InstitutionCode text default 'DEMNA-SPW',
+GeodeticDatum text default'WGS 84',
+Family text,
+OccurrenceStatus text default 'Present',
+FootprintWKT text default null,
+FootprintSRS text default null,
+ifbl_obs text default null)
+;
+```
+
+```{sql connection=db}
+INSERT INTO DWCOcc (ifbl_obs,conf,Family,OccurrenceID,Modified,EventRemarks,LocationRemarks,CatalogNumber,ifbl,conf,DecimalLongitude, DecimalLatitude, SamplingProtocol,Behavior,Identificationremarks, identificationverificationstatus, CollectionCode,LifeStage,OccurrenceRemarks,sex,CoordinateUncertaintyInMeters ,individualcount, VerbatimCoordinates, VerbatimCoordinatesystem, fips, spec_id , stat_id,cond_id, spec_id_orig,Locality ,VerbatimScientificName,RecordedBy ,IdentifiedBy ,Municipality ,VerbatimCoordinates ,VerbatimElevation,VerbatimEventDate,LocationRemarks,OrganismsQuantity, OrganismsQuantityType)
+SELECT ifbl_obs, conf, gr2,source_file_id||'-'||spec_id, date_modification,cond_memo, stat_memo,spec_ID,ifbl_obs,conf,longitude_obs, latitude_obs,tech_capture,cast(comportement as text), certitude_det,validation,source_file_id,devl,unit,sex,prec, n ,orig, datum ,fips, spec_id ,stat_id, cond_id ,spec_id_orig, topo,  taxprio,  rec, det, loca, orig, alti, dat2, stat_memo, abond, abondunit
+FROM occurrences;
+```
+
+**Table 6 : Correspondances de champs entre les formats EEL et DarwinCore (GBIF):**
+
+```{sql connection=db, max.print=40}
+select * from mappingDWC;
+```
+
+***
+
+###3.5.2. Reformater/controler le contenu
+
+Cette partie est conséquente. Le contenu des différents champs d'informations qui constitueront le jeu de données final est contrôlé et homogénéisé ou traduit si besoin.
+
+
+* **Modified:** 
+
+*Date on which the resource was changed*
+
+valeurs originales:
+
+```{sql connection=db, max.print=10}
+select distinct length(modified) Ncar, modified from dwcocc group by Ncar order by Ncar desc;
+
+```
+
+Pour format plus simple : on ne garde que la date, pas l'heure:
+
+```{sql connection=db, max.print=5}
+Update dwcocc set modified = substr(modified,1,10)
+```
+```{sql connection=db, max.print=10}
+select distinct length(modified) Ncar, modified from dwcocc where modified is not null group by Ncar order by Ncar desc;
+```
+
+
+
+***
+
+* **Catalognumber:**
+
+*An identifier (preferably unique) for the record within the data set or collection.*
+
+Dans EEL, cela correspond au spec_ID.
+```{sql connection=db, max.print=5}
+
+select distinct Catalognumber from dwcocc;
+
+```
+
+***
+
+* **CollectionCode:**
+
+*The name, acronym, code, or initialism identifying the collection or data set from which the record was derived.*
+
+On y reprend le nom de la source (fi_nom), apportant une information plus utile que la colonne 'coll'.
+
+```{sql connection=db}
+update dwcocc set CollectionCOde = (select fi_nom from sources where fi_id=dwcocc.collectioncode)
+```
+
+*Valeurs finales :*
+
+```{sql connection=db, max.print=5}
+
+select distinct CollectionCode, count(*)Ndonnees from dwcocc group by collectioncode;
+
+```
+
+**Il ne reste que ces 5 sources une fois les données invalides écartées...** 
+
+***
+
+*  **StateProvince:**
+
+Les noms de provinces/régions sont importés depuis le dictionnaire.
+
+*Valeurs originales :*
+
+```{sql connection=db, max.print=10}
+select distinct fips from dwcocc;
+```
+
+```{sql connection=db}
+update dwcocc set StateProvince = (select lower(prov) from dico_fips where fips=dwcocc.fips)
+```
+
+
+```{sql connection=db}
+update dwcocc set stateprovince= null where stateprovince='belgique'
+```
+
+* **Country/CountryCode:**
+
+Par défaut : BELGIUM/BE. Modifié pour les entrées signalées en France par la province (sur base de FIPS).
+
+```{sql connection=db}
+update dwcocc set CountryCode = 'FR' where stateprovince='france';
+```
+```{sql connection=db}
+update dwcocc set Country = 'France' where stateprovince='france';
+```
+```{sql connection=db}
+update dwcocc set stateprovince= null where stateprovince='france'
+```
+
+*valeurs finales:*
+
+```{sql connection=db, max.print=10}
+select distinct StateProvince, count(*)Ndonnees from dwcocc group by stateprovince;
+```
+
+```{sql connection=db, max.print=10}
+select distinct Country,CountryCode, count(*)Ndonnees from dwcocc group by Country;
+```
+
+***
+
+* **DataSetName:**
+
+*Dataset Name: The name identifying the data set from which the record was derived.*
+
+Cela peut être confus, mais dans les lignes directrices de TrIAS ce champ doit reprendre le titre du jeu de données tel que publié sur GBIF. C'est pour cela que le nom de la source de données (BD d'origine) est mentionné dans le champ 'CollectionCode'. Méthode préférée par Peter Desmet (INBO).
+
+```{sql connection=db}
+select distinct datasetname, count(*)Ndonees from dwcocc group by datasetName;
+```
+
+***
+
+* **OccurrenceID:**
+
+*An identifier for the Occurrence (as opposed to a particular digital record of the occurrence). In the absence of a persistent global unique identifier, construct one from a combination of identifiers in the record that will most closely make the occurrenceID globally unique.*
+
+Concaténation  des champs EEL: 'source_file_id' et 'spec_id'.
+
+1)Voir si les OccurrenceID sont bien spécifiés pour TOUTES les données (concaténation 'source_file_id||spec_id') : c'est le cas.
+
+```{sql connection=db, max.print=5}
+select count(*) from dwcocc where occurrenceid is null or occurrenceID =''; -- doit retourner 0
+
+```
+
+2)Voir si les OccurrenceID sont bien uniques pour chaque entrée : c'est le cas.
+
+```{sql connection=db, max.print=5}
+
+select occurrenceID, count(*)as Nrepetitions from dwcocc group By OccurrenceID order by Nrepetitions desc ; -- Données ayant le plus de répétitions d'ID, devrait etre =1 partout.
+```
+
+***
+
+* **RecordedBy :**
+
+Conformément à l'avis juridique obtenu, les noms de personnes sont anonymisés(RGPD). L'accord pour diffuser le nom d'auteur d'une donnée doit être donné par celui-ci.
+Le nom d'observateur par défaut :'*DEMNA & associated parties*' est utilisé pour tous les enregistrements.
+
+```{sql connection=db}
+update dwcocc set RecordedBy='DEMNA & associated parties'
+```
+
+```{sql connection=db, max.print=15}
+select distinct recordedby from dwcocc ;
+```
+
+***
+
+* **IndividualCount:**
+
+N dans EEL. Passé en numérique (pas d'écritures), et retiré si égal à zéro. 
+
+```{sql eval=FALSE, connection=db, include=FALSE, max.print=5}
+select distinct individualcount from dwcocc where cast(individualcount as integer)!=individualcount;
+```
+
+```{sql connection=db}
+update dwcocc set individualcount=null where individualcount in ('0', '')
+```
+
+*Valeurs finales:*
+
+```{sql connection=db, max.print=5}
+select distinct individualcount from dwcocc order by random();
+```
+
+***
+
+* **sex:**
+'sex' dans EEL. Uniques valeures possibles gardées :[Male, Female, Worker]. Les valeures indéterminées ou sans correspondance dans le dictionnaire sont supprimées.
+
+Le dictionnaire est mis à jour avec de l'anglais.
+
+```{sql connection=db, max.print=15}
+select distinct sex from  dwcocc;
+
+```
+```{sql connection=db}
+update dwcocc set sex=NULL where sex='' or sex='0' or sex='i' or sex='i ' or sex in ('', "","On","ON","on") ;
+```
+```{sql connection=db}
+update dwcocc set sex ='Female' where sex='F' or sex ='F ' or sex in("Vr","VR");
+
+```
+```{sql connection=db}
+update dwcocc set sex = 'Male' where sex = 'M' or sex ='M ' or sex in ("Pa", "Ma","MA") ;
+
+```
+```{sql connection=db}
+update dwcocc set sex='Worker' where sex ='W';
+```
+```{sql connection=db}
+update dwcocc set sex=Null where sex not in ('Male', 'Female', 'Worker')
+```
+
+*Valeurs finales:*
+
+```{sql connection=db}
+select distinct sex, count(*)Ndonnees from  dwcocc group by sex;
+
+```
+
+***
+
+* **LifeStage:**
+
+'Devl' dans EEL. Les valeures indéterminées ou sans correspondance dans le dictionnaire sont supprimées.
+
+Le dictionnaire est mis à jour avec de l'anglais.
+
+```{sql connection=db}
+--alter table dico_devl add column GBIF_terms text; 
+update dico_devl set GBIF_terms = Null where code='0';
+update dico_devl set GBIF_terms='Adult' where code='A';
+update dico_devl set GBIF_terms='Exuvia'  where code='E';
+update dico_devl set GBIF_terms= 'Larvae' where code='L';
+update dico_devl set GBIF_terms='Neonate' where code='Neo';
+update dico_devl set GBIF_terms='Immature' where code='I';
+update dico_devl set GBIF_terms= 'Juvenile' where code='J';
+update dico_devl set GBIF_terms= 'Nymph' where code='N';
+update dico_devl set GBIF_terms= 'Chrysalis' where code='P';
+update dico_devl set GBIF_terms= 'Egg' where code='X';
+update dico_devl set GBIF_terms= 'Molt' where code='Mue';
+update dico_devl set GBIF_terms= 'Antlers developped (Cervidae)' where code='Boise';
+update dico_devl set GBIF_terms= 'Antler less (Cervidae)' where code='NonBoise';
+update dico_devl set GBIF_terms= 'Living adult' where code='AV';
+update dico_devl set GBIF_terms= 'Dead adult' where code='AM';
+update dico_devl set GBIF_terms= 'Adult with juveniles' where code='A+J';
+update dico_devl set GBIF_terms= 'Alive' where code='Viv';
+update dico_devl set GBIF_terms= 'Dead' where code='Mort';
+update dico_devl set GBIF_terms= 'Dead Juvenile' where code='JM';
+```
+```{sql connection=db}
+update dwcocc set lifestage= (select GBIF_terms from dico_devl where code= dwcocc.lifestage) where dwcocc.lifestage in(select code from dico_devl);
+
+```
+```{sql connection=db}
+update dwcocc set lifestage=null where lifestage not in(select GBIF_terms from dico_devl);
+
+```
+```{sql connection=db}
+update dwcocc set lifestage=null where lifestage ='Mi';
+
+```
+
+*Valeurs finales:*
+
+```{sql connection=db, max.print=15}
+select lifestage, count(*)Ndonnees from dwcocc  group by lifestage order by Ndonnees desc;
+
+```
+
+***
+
+* **Behavior:**
+
+'Comportement' dans EEL. Les valeures indéterminées ou sans correspondance dans le dictionnaire sont supprimées.
+Le dictionnaire est mis à jour avec de l'anglais.
+
+```{sql connection=db}
+--alter table dico_comportement add column GBIF_terms;
+update dico_comportement set GBIF_terms ='Possibly nesting' where comport_code ='1';
+update dico_comportement set GBIF_terms ='Possibly nesting ; observation during reproductive period' where comport_code ='1.1';
+update dico_comportement set GBIF_terms ='Possibly nesting ; Singing within a favourable Habitat' where comport_code ='1.2';
+update dico_comportement set GBIF_terms ='Possibly nesting ; courtship within a favourable habitat' where comport_code ='1.2a';
+update dico_comportement set GBIF_terms ='Probably nesting' where comport_code ='2';
+update dico_comportement set GBIF_terms ='Probably nesting ; couple within a favorable habitat' where comport_code ='2.1';
+update dico_comportement set GBIF_terms ='Probably nesting ; presumed territory' where comport_code ='2.2';
+update dico_comportement set GBIF_terms ='Probably nesting ; territorial fight' where comport_code ='2.2a';
+update dico_comportement set GBIF_terms ='Probably nesting ; courtship of a couple' where comport_code ='2.3';
+update dico_comportement set GBIF_terms ='Probably nesting ; visiting a nesting site' where comport_code ='2.4';
+update dico_comportement set GBIF_terms ='Probably nesting ; adults alarm calls suggesting the presence of a nest' where comport_code ='2.5';
+update dico_comportement set GBIF_terms ='Probably nesting ; coupling' where comport_code ='2.6';
+update dico_comportement set GBIF_terms ='Probably nesting ; brood patch observed' where comport_code ='2.7';
+update dico_comportement set GBIF_terms ='Sure nesting' where comport_code ='3';
+update dico_comportement set GBIF_terms ='Sure nesting ; transporting equipment for the nest' where comport_code ='3.1';
+update dico_comportement set GBIF_terms ='Sure nesting ; nest building' where comport_code ='3.1a';
+update dico_comportement set GBIF_terms ='Sure nesting ; digging of a lodge' where comport_code ='3.1b';
+update dico_comportement set GBIF_terms ='Sure nesting ; diversion parade, injury simulation' where comport_code ='3.2';
+update dico_comportement set GBIF_terms ='Sure nesting ; nest or recent shells observation' where comport_code ='3.3';
+update dico_comportement set GBIF_terms ='Sure nesting ; (nidifugous) fluffy juveniles' where comport_code ='3.4';
+update dico_comportement set GBIF_terms ='Sure nesting ; (nidicolous) recently flying juveniles' where comport_code ='3.4a';
+update dico_comportement set GBIF_terms ='Sure nesting ; family with flying juveniles ' where comport_code ='3.4b';
+update dico_comportement set GBIF_terms ='Sure nesting ; bird visiting an occupied nest' where comport_code ='3.5';
+update dico_comportement set GBIF_terms ='Sure nesting ; transporting food for juveniles' where comport_code ='3.6';
+update dico_comportement set GBIF_terms ='Sure nesting ; droppings evacuation' where comport_code ='3.6a';
+update dico_comportement set GBIF_terms ='Sure nesting ; nest containing eggs' where comport_code ='3.7';
+update dico_comportement set GBIF_terms ='Sure nesting ; nest containing juveniles' where comport_code ='3.8';
+update dico_comportement set GBIF_terms ='Roosted bird' where comport_code ='D.1';
+update dico_comportement set GBIF_terms ='Roosting bird' where comport_code ='D.1a';
+update dico_comportement set GBIF_terms ='Bird flying off' where comport_code ='D.1b';
+update dico_comportement set GBIF_terms ='Migrator halting' where comport_code ='D.1c';
+update dico_comportement set GBIF_terms ='Passage to dorm site' where comport_code ='D.2';
+update dico_comportement set GBIF_terms ='Flying bird' where comport_code ='D.3';
+update dico_comportement set GBIF_terms ='Flying migrator' where comport_code ='D.4';
+update dico_comportement set GBIF_terms ='Migrator flying' where comport_code ='D.4';
+update dico_comportement set GBIF_terms ='Into dorm site' where comport_code ='D.5';
+update dico_comportement set GBIF_terms ='Migration back' where comport_code ='D.6';
+update dico_comportement set GBIF_terms ='In a manger' where comport_code ='M.1';
+update dico_comportement set GBIF_terms ='Feeding' where comport_code ='M.2';
+update dico_comportement set GBIF_terms ='Hunting/fishing' where comport_code ='M.3';
+update dico_comportement set GBIF_terms ='Sleeping/repose' where comport_code ='Z.2';
+update dico_comportement set GBIF_terms ='Self grooming/maintenance of the plumage' where comport_code ='Z.3';
+update dico_comportement set GBIF_terms ='Cries and chants out of nesting conditions' where comport_code ='Z.4';
+update dico_comportement set GBIF_terms ='in copula' where comport_code ='repr';
+update dico_comportement set GBIF_terms ='Laying' where comport_code ='pond';
+update dico_comportement set GBIF_terms ='Gathering/foraging pollen' where comport_code ='buti';
+update dico_comportement set GBIF_terms ='Emerge' where comport_code ='emer';
+update dico_comportement set GBIF_terms ='Flying' where comport_code ='vol';
+```
+```{sql connection=db}
+update dwcocc set behavior = null where behavior = '' or behavior='0';
+
+```
+
+```{sql connection=db}
+update dwcocc set Behavior= (select GBIF_terms from dico_comportement where comport_code= dwcocc.Behavior);
+
+```
+
+*Valeurs finales:*
+
+```{sql connection=db, max.print=20}
+select behavior, count(*)Ndonnees from dwcocc group by behavior;
+```
+
+***
+
+* **EstablishmentMean:**
+
+On ne garde que des invasives dans la fusion. terme préférable : 'Introduced' pris en valeur par défaut.
+
+```{sql connection=db}
+select distinct establishmentmean, count(*) Ndonnees from dwcocc group by establishmentmean;
+```
+
+***
+
+* **IdentificationRemarks:**
+
+'Certitude_det' dans EEL. Ce n'est pas un champ avec du texte libre pouvant contenir des information confidentielles/RGPD.
+
+```{sql connection=db}
+update dwcocc set identificationremarks= 'Certain Identification' where identificationremarks ='cert' or identificationremarks in('Cert', "Cert");
+```
+```{sql connection=db}
+update dwcocc set identificationremarks='Approximate Identification' where identificationremarks='appr';
+```
+
+*Valeurs finales:*
+
+```{sql connection=db}
+select identificationRemarks, count(*)Ndonnees from dwcocc group by identificationremarks;
+```
+
+***
+
+* **SamplingProtocol**
+
+'Tech_capture' dans EEL. Les valeures indéterminées ou sans correspondance dans le dictionnaire sont supprimées.
+Le dictionnaire est mis à jour avec de l'anglais.
+
+```{sql connection=db}
+update dwcocc set samplingProtocol='Filet' where samplingprotocol in ("capture", "filet","épuisette");
+```
+```{sql connection=db}
+update dwcocc set samplingProtocol='Fishing' where samplingprotocol in ("drague","plongée", "vidange", "nasse","pêche", "Nasse");
+```
+```{sql connection=db}
+update dwcocc set samplingProtocol='Live observation' where samplingprotocol in ("observatio");
+```
+```{sql connection=db}
+update dwcocc set samplingProtocol='Photo capture' where samplingprotocol in ("photo");select distinct SamplingProtocol from dwcocc;
+```
+```{sql connection=db}
+update dwcocc set SamplingProtocol = null where SamplingProtocol = '';
+
+```
+```{sql connection=db}
+--alter table dico_tech_capture add column GBIF_terms text;
+update dico_tech_capture set gbif_terms ='Net' where code ='Filet';
+update dico_tech_capture set gbif_terms ='Sweep net' where code ='Fauch';
+update dico_tech_capture set gbif_terms ='Umbrella' where code ='Parap';
+update dico_tech_capture set gbif_terms ='Colored tub' where code ='Bac';
+update dico_tech_capture set gbif_terms ='Malaise trap' where code ='PM';
+update dico_tech_capture set gbif_terms ='Light trap' where code ='PL';
+update dico_tech_capture set gbif_terms ='Pitfall trap' where code ='PF';
+update dico_tech_capture set gbif_terms ='Sticky trap' where code ='PColl';
+update dico_tech_capture set gbif_terms ='Nest box' where code ='Nich';
+update dico_tech_capture set gbif_terms ='Sieving' where code ='LavTa';
+update dico_tech_capture set gbif_terms ='Wasp trap' where code ='PG';
+update dico_tech_capture set gbif_terms ='Beer trap' where code ='Biere';
+update dico_tech_capture set gbif_terms ='Funnel trap' where code ='Enton';
+update dico_tech_capture set gbif_terms ='Soil/compost sieving' where code ='Tamis_terr';
+update dico_tech_capture set gbif_terms ='Litter sieving' where code ='Tamis_liti';
+update dico_tech_capture set gbif_terms ='Hay sieving' where code ='Tamis_foin';
+update dico_tech_capture set gbif_terms ='Mosses sieving' where code ='Tamis_mous';
+update dico_tech_capture set gbif_terms ='Newts trap' where code ='Nasse';
+update dico_tech_capture set gbif_terms ='breeding' where code ='Elevage';
+```
+
+```{sql connection=db}
+update dwcocc set SamplingProtocol =(select GBIF_terms from dico_tech_capture where code=dwcocc.SamplingProtocol) where dwcocc.SamplingProtocol in (select code from dico_tech_capture);
+
+```
+
+```{sql connection=db}
+update dwcocc set samplingprotocol = null where samplingprotocol='';
+```
+
+*Valeurs finales:*
+
+```{sql connection=db}
+select samplingprotocol, count(*) Ndonnees from dwcocc group by samplingprotocol;
+
+```
+
+***
+
+* **IdentifiedBy:**
+
+Même remarque et solution que pour RecordedBy : valeur par défaut. Possible d'accorder une règle différente pour les autres sources qu'OFFH.
+
+```{sql connection=db}
+update dwcocc set IdentifiedBy='DEMNA & associated parties'
+```
+```{sql connection=db, max.print=15}
+select distinct identifiedby from dwcocc;
+```
+
+***
+
+* **IdentificationVerificationStatus:**
+
+'Validation' dans EEL.
+On reprend le code de validation, qu'on traduit. Toutes les données présentes ici sont bien validées (sélection en amont).
+
+```{sql connection=db}
+update dwcocc set identificationverificationstatus ='validated on the basis of a document' where identificationverificationstatus ='1' 
+```
+```{sql connection=db}
+update dwcocc set identificationverificationstatus ='validated on the basis of likelihood' where identificationverificationstatus ='4' 
+```
+```{sql connection=db}
+update dwcocc set identificationverificationstatus ='validated without a document in support (expertise or additional informations)' where identificationverificationstatus ='5' 
+```
+
+*Valeurs finales:*
+
+```{sql connection=db, max.print=8}
+select distinct identificationverificationstatus, count(*)from dwcocc group by identificationverificationstatus ;
+```
+
+
+***
+
+* **Champs géographiques:**
+
+**FootPrintWKT**
+
+Pour mieux signaler les données dérivées de carrés (format original ou données confidentielles) le WKT (well-known-text : format text pour des géométries)est ajouté. Il s'agit donc de donner le polygone du carré sous ce format. Ne sera pas fait pour les données 'points' pour mieux marquer la différence.
+
+```
+--A Executer dans SpatiaLite--
+alter table geo_ifbl01_wgs84 add column WKT text default null;
+alter table geo_ifbl04_wgs84 add column WKT text default null;
+alter table geo_mgrs_01 add column WKT text default null;
+alter table geo_mgrs_05_wgs84 add column WKT text default null;
+alter table geo_mgrs_10_wgs84 add column WKT text default null;
+
+update geo_ifbl01_wgs84 set WKT = AsText(geom);
+update geo_ifbl04_wgs84 set WKT = AsText(geom);
+update geo_mgrs_01 set WKT = AsText(geom);
+update geo_mgrs_05_wgs84 set WKT = AsText(geom);
+update geo_mgrs_10_wgs84 set WKT = AsText(geom);
+```
+**1) Donner le carré IFBL 1x1 pour toutes les données confidentielles et les résumer:**
+
+*Les carrés IFBL 1x1 sont importés en WKT, pour toutes les données confidentielles.*
+
+```{sql connection=db}
+update dwcocc set footprintwkt = null;
+```
+```{sql connection=db}
+update dwcocc set FootprintWKT =(select WKT from geo_ifbl01_WGS84 where ifbl1=dwcocc.ifbl_obs) where conf!=3; 
+```
+
+*Les latitutdes/longitudes du centroide du IFBL1 remplacent les coordonnées de l'observation pour les données confidentielles.*
+
+```{sql connection=db}
+update dwcocc set decimallongitude =(select lng from geo_ifbl01_wgs84 where ifbl1=dwcocc.ifbl_obs) where conf!=3;
+```
+```{sql connection=db}
+update dwcocc set decimallatitude =(select lat from geo_ifbl01_wgs84 where ifbl1=dwcocc.ifbl_obs) where conf!=3;
+```
+
+*La localité est supprimée pour toutes les données confidentielles.*
+
+
+```{sql connection=db}
+update dwcocc set locality=null where conf!=3;
+```
+
+**Compte de données résumées:**
+
+```{sql connection=db, max.print=10}
+select count(*) from dwcocc where footprintwkt is not null;
+```
+
+**Compte de données confidentielles:**
+
+```{sql connection=db}
+select count(*) from dwcocc where conf!=3;
+```
+
+
+*L'imprécision est également fixée à 707 m*  mais cette valeur sera supprimée par la suite si la donnée dérive d'un carré plus grand (le WKT correspondant sera également remplacé). 
+
+```{sql connection=db}
+update dwcocc set CoordinateUncertaintyInMeters = 707 where conf !=3; 
+```
+
+*Les coordonnées originales (verbatimcoordinates)sont également supprimées pour ces données.*
+
+```{sql connection=db}
+update dwcocc set verbatimcoordinates=null where conf !=3;
+```
+
+
+*Il reste à faire de même pour les données dérivées de carrés (encodage original)* 
+
+**2) Indiquer le carré d'origine pour les données dérivées de carrés:**
+
+
+
+```{sql connection=db}
+update dwcocc set verbatimcoordinateSystem = substr(verbatimcoordinates,1,3)
+```
+```{sql connection=db}
+update dwcocc set verbatimcoordinates = substr(verbatimcoordinates,4,length(verbatimcoordinates))
+```
+```{sql connection=db}
+update dwcocc set verbatimcoordinates = replace(verbatimcoordinates, ' ','') where verbatimcoordinateSystem='mgr'
+```
+```{sql connection=db}
+update dwcocc set verbatimcoordinateSystem ='WGS 84' where verbatimcoordinateSystem like 'deg%'
+```
+```{sql connection=db}
+update dwcocc set verbatimcoordinateSystem ='IFBL' where verbatimcoordinateSystem like 'ifb%'
+```
+```{sql connection=db}
+update dwcocc set verbatimcoordinateSystem ='WGS 84' where verbatimcoordinateSystem like 'def%'
+```
+```{sql connection=db}
+update dwcocc set verbatimcoordinateSystem ='Lmb 72' where verbatimcoordinateSystem like 'lmb%'
+```
+```{sql connection=db}
+update dwcocc set verbatimcoordinateSystem ='MGRS' where verbatimcoordinateSystem like 'mgr%'
+```
+```{sql connection=db, max.print=15}
+update dwcocc set verbatimcoordinates=replace(verbatimcoordinates, '+','');
+```
+
+*Quels types de systèmes sont présents?*
+
+```{sql connection=db}
+select verbatimcoordinateSystem, verbatimcoordinates ,count(*) from dwcocc group by verbatimcoordinatesystem;
+```
+
+*Il y a 33 données dérivées : IFBL(32)et MGRS(1). Quels types (1x1, 4x4, 10x10)?*
+
+```{sql connection=db}
+select verbatimcoordinateSystem, verbatimcoordinates ,count(*) from dwcocc where verbatimcoordinateSystem in('IFBL','MGRS') group by verbatimcoordinates;
+```
+
+*IFBL 5 chiffres = 1x1 --- IFBL 3 chiffres = 4x4 --- MGRS = 1x1*
+
+
+**Les polygones originaux sont importés en WKT, uniquement pour les données dérivées d'IFBL (1, 4) ou de MGRS(1).**
+
+* *Importer les IFBL 1x1.*
+
+```{sql connection=db}
+update dwcocc set VerbatimCoordinates = upper(verbatimcoordinates);
+```
+```{sql connection=db}
+update dwcocc set FootprintWKT =(select WKT from geo_ifbl01_WGS84 where trim(lower(ifbl1)= trim(lower(dwcocc.verbatimcoordinates)))) where verbatimcoordinatesystem ='IFBL' and trim(verbatimcoordinates) in (select trim(ifbl1) from geo_ifbl01_WGS84);;
+```
+
+* *Importer les IFBL 4x4.*
+
+```{sql connection=db}
+update dwcocc set FootprintWKT =(select WKT from geo_ifbl04_WGS84 where trim(ifbl4)=trim(dwcocc.verbatimcoordinates)) where verbatimcoordinatesystem ='IFBL' and trim(verbatimcoordinates) in (select trim(ifbl4) from geo_ifbl04_WGS84);
+
+```
+
+* *Importer les MGRS1.*
+
+```{sql connection=db}
+update dwcocc set FootprintWKT =(select WKT from geo_mgrs_01 where trim(mgrs1)=trim(dwcocc.verbatimcoordinates)) where verbatimcoordinateSystem ='MGRS'and trim(verbatimcoordinates) in (select trim(mgrs1) from geo_mgrs_01);;
+```
+
+**Vérification:**
+```{sql connection=db, max.print=2}
+select verbatimcoordinateSystem, verbatimcoordinates ,footprintwkt,count(*) from dwcocc where verbatimcoordinateSystem in('IFBL','MGRS') group by verbatimcoordinates;
+```
+
+Les WKT sont bien spécifiés pour toutes les données dérivées de carrés.
+
+**Spécififer la projection du WKT:**
+
+```{sql connection=db}
+Update dwcocc set FootprintSRS ='GEOGCS["GCS_WGS_1984", DATUM["D_WGS_1984", SPHEROID["WGS_1984",6378137,298.257223563]], PRIMEM["Greenwich",0], UNIT["Degree",0.0174532925199433]]'where footprintwkt is not null;
+```
+
+```{sql eval=FALSE, connection=db, include=FALSE}
+-- NE CONCERNE QU UNE SEULE DONNEE (CELLE EN MGRS)--
+Update dwcocc set FootprintSRS ='PROJCS["Belge 1972 / Belgian Lambert 72",GEOGCS["Belge 1972",DATUM["Reseau_National_Belge_1972",SPHEROID["International 1924",6378388,297,AUTHORITY["EPSG","7022"]],TOWGS84[-106.869,52.2978,-103.724,0.3366,-0.457,1.8422,-1.2747],AUTHORITY["EPSG","6313"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4313"]],PROJECTION["Lambert_Conformal_Conic_2SP"],PARAMETER["standard_parallel_1",51.16666723333333],PARAMETER["standard_parallel_2",49.8333339],PARAMETER["latitude_of_origin",90],PARAMETER["central_meridian",4.367486666666666],PARAMETER["false_easting",150000.013],PARAMETER["false_northing",5400088.438],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["X",EAST],AXIS["Y",NORTH],AUTHORITY["EPSG","31370"]]'where footprintwkt is not null and verbatimcoordinatesystem like '%mgr%';
+```
+
+
+**Les données venant d'un carré résumé sont signalées dans un champ de commentaire.**
+
+```{sql connection=db}
+Update dwcocc set datageneralizations =datageneralizations||' - Long/lat are square center ; use preferably FootprintWKT for right geometry' where footprintwkt like '%Polyg%';
+```
+
+**l'imprécision est adaptée:**
+
+```{sql connection=db}
+update dwcocc set coordinateuncertaintyinmeters = '707' where verbatimcoordinatesystem like '%IFB%' and length(verbatimcoordinates)=7
+```
+```{sql connection=db}
+update dwcocc set coordinateuncertaintyinmeters = '2828' where verbatimcoordinatesystem like '%IFB%' and length(verbatimcoordinates)=5
+```
+```{sql connection=db}
+update dwcocc set coordinateuncertaintyinmeters = '707' where verbatimcoordinatesystem like '%MGR%';
+```
+
+**Résumé (exclus les données confidentielles):**
+
+```{sql connection=db, max.print=30}
+select Verbatimcoordinatesystem, verbatimcoordinates, length(verbatimcoordinates)NumberDigits,coordinateuncertaintyInmeters,substr(footprintwkt,1,10)||'...' FootPrintWKT ,count(*)Ndonnees from dwcocc where verbatimcoordinatesystem in ('IFBL','MGRS') group by verbatimcoordinatesystem, numberdigits ;
+```
+
+
+**CoordinateuncertaintyInmeters:**
+
+
+Le champ prec (déjà modifié pour les ifbl et données résumées) est passé en numérique.
+
+```{sql connection=db}
+update dwcocc set coordinateuncertaintyInmeters = null where cast(coordinateUncertaintyinmeters as real)=0; 
+```
+
+*Valeurs finales:*
+
+```{sql connection=db, max.print=15}
+select distinct coordinateuncertaintyInmeters, count(*)Ndonnees from dwcocc group by coordinateuncertaintyInmeters order by coordinateuncertaintyInmeters desc;
+```
+
+**Compte de données sans longitude ou latitude : 0**
+
+```{sql connection=db, max.print=30}
+select occurrenceid, count(*) from dwcocc where decimallongitude is null or decimallatitude is null -- parfait
+```
+
+**Projection des données points:**
+
+lng_obs et lat_obs pour les colonnes DecimalLongitude/Latitude. Remplacé par celles de l'IFBL1 pour les données résumées ou dérivées de carrés.
+
+```{r}
+#install.packages(rworldmap)
+library(rworldmap)
+newmap <- getMap(resolution = "low")
+plot(newmap, xlim = c(2.4, 6.5), ylim = c(49.5, 51.6), asp = 1)
+library(RSQLite)
+
+
+Points<- dbGetQuery(db, "SELECT distinct cast(DecimalLongitude as real) as long, cast(DecimalLatitude as real)as lat from dwcocc")
+
+points(Points$long, Points$lat, col = "blue", cex = .2)
+
+```
+
+
+**Les données géographiques sont vérifiées et résumées pour toutes les données confidentielles ou dérivées d'IFBL/MGRS. L'imprécision, la localité sont également adaptées en fonction.**
+
+***
+
+* **EventDate:**
+
+La date est reformatée depuis le champ Dat2. 24 données sans date valide sont supprimées.
+
+*Valeurs originales:*
+
+```{sql connection=db, max.print=5}
+select distinct length(verbatimeventdate)long, count(*) from dwcocc group by long ;
+```
+
+```{sql connection=db}
+delete from dwcocc where length(verbatimeventdate)!=8 or verbatimeventdate is null ;
+```
+```{sql connection=db}
+update dwcocc set Year = substr(verbatimeventdate,1,4)
+```
+```{sql connection=db}
+delete from dwcocc where cast(year as integer)<1850 ;
+```
+
+
+```{sql connection=db}
+update dwcocc set Month = substr(verbatimeventdate,5,2)
+```
+```{sql connection=db}
+update dwcocc set Day = substr(verbatimeventdate,7,2)
+```
+```{sql connection=db}
+update dwcocc set EventDate = YEAR||'-'||MONTH||'-'||DAY;
+```
+
+*Valeurs finales:*
+
+```{sql connection=db, max.print=10}
+select distinct length(eventdate)l, eventdate, day, month, year from dwcocc ;
+```
+
+
+***
+
+* **Champs Taxonomiques:**
+
+```{sql connection=db}
+update dwcocc set scientificname=verbatimscientificname;
+```
+
+**La famille (gr2) et le nom scientifique (taxprio) sont les seules informations taxonomiques reprises:**
+
+```{sql connection=db, max.print=10}
+select distinct family, scientificname, count(*)Ndonnees from dwcocc group by scientificName order by random();
+```
+
+
+***
+***
+
+##3.5.3. Finalisation et résumé.
+
+La préparation du jeu d'occurrences est terminée. Cette partie résume la description du jeu de données final (Nombre de données aux différentes étapes de la préparation et dans le jeu final, taxons concernés, champs diffusés.
+
+**Nombre de données d'occurrence après le nettoyage/formatage:**
+
+```{r}
+Ndonnees_nettoyees<- dbGetQuery(db, "SELECT count(*)Ndonnees_nettoyees from dwcocc")
+Ndonnees_nettoyees
+```
+
+**Nombre de données taxons après le nettoyage/formatage:**
+
+```{r}
+NTaxons_nettoyes<- dbGetQuery(db, "SELECT count(distinct scientificname)NTaxons_nettoyes from dwcocc")
+NTaxons_nettoyes
+```
+
+
+Certaines colonnes inutiles pour la table finale sont éliminées pour obtenir une table au format DarwinCore la plus propre possible.
+
+```{sql connection=db}
+drop table if exists save ;
+```
+```{sql connection=db}
+create table save as select * from dwcocc;
+```
+```{sql connection=db}
+drop table dwcocc;
+```
+```{sql connection=db}
+create table DwCOcc as select 
+--Record Level
+institutioncode, DatasetName, CollectionCode, BasisOfRecord,modified, Datageneralizations,
+--Taxon
+ScientificName, Family,
+--Occurrence
+OccurrenceID, CatalogNumber,RecordedBy,Occurrencestatus,sex, individualcount, lifestage, behavior, Establishmentmean,
+--Identification
+IdentifiedBy, Identificationverificationstatus, identificationremarks,
+--Event
+Year, Month, Day, Eventdate, verbatimeventdate,samplingprotocol,
+--Location
+DecimalLongitude, Decimallatitude,geodeticDatum, Coordinateuncertaintyinmeters, verbatimcoordinates, verbatimcoordinatesystem, footprintwkt, footprintsrs,locality, municipality, stateprovince,country, countrycode
+from save;
+```
+
+```{sql connection=db}
+drop table save;
+```
+
+
+
+
+**Table 6 : Decription de la table DWCOCC:**
+
+```{sql connection=db, max.print=40}
+PRAGMA table_info(dwcocc) ;
+```
+
+**Table 7 : Nombre d'occurrences/taxons pour les différentes étapes de la préparation:**
+
+```{r}
+Nettoyage <- data.frame(Donnees=c(NDonnees_origine$NDonnees_origine, NDonnees_exotiques$NDonnees_exotiques, NDonnees_dispo$NDonnees_dispo, NDonnees_Valides$NDonnees_Valides,Ndonnees_nettoyees$Ndonnees_nettoyees),Taxons=c(NTaxons_origine$NTaxons_origine, NTaxons_exotiques$NTaxons_exotiques, NTaxons_dispo$NTaxons_dispo, NTaxons_Valides$NTaxons_Valides,NTaxons_nettoyes$NTaxons_nettoyes), row.names = c('Origine','Selection_exotiques', 'Datasets_publiables','Validées', 'Final'))
+head(Nettoyage)
+
+```
+
+**Table 8 : Liste des taxons inclus dans le jeu de données final:**
+
+```{sql connection=db, max.print=100}
+select scientificname, family, count(*)NDonnees from dwcocc group by scientificname order by Ndonnees desc;
+```
+
+***
+
+**La table DWCOCC est enregistrée dans la fusion zollogique SQLITE et peut être exportée pour publication sur GBIF. Sa dernière version est également dans le dossier :"x:/A2/NatureParTheme/GBIF/Exotic_zoo/resultats/dwcocc.csv ". Il reste à valider la description du jeu de données pour la publication GBIF**
+
+
+***
+***
+
+#4. Edition des métadonnées
+
+
+Le document de métadonnées décrit le jeu de données et en est indissociable pour la publication sur GBIF. Il s'agit d'un ensemble de champs d'informations, de descriptions qui est utilisé pour générer la 'page d'accueil d'un dataset. Le remplissage du document peut varier d'une publication à l'autre, être très concis ou très complet, et dans notre cas, il faut nous assurer d'y inclure toutes les communications/recommandations et précautions que nous aimerions partager avec un utilisateur qui découvrirait le jeu de données. 
+
+Exemple:  https://www.gbif.org/dataset/f145c27d-b1c3-4136-85b1-c21674d2d1c3.
+
+***
+
+  + **Basic Metadata :**
+  
+    + Title :  DEMNA : Exotic animal occurrences in Wallonia
+    
+    + Publishing organisation :Service Public de Wallonie – Département de l'Etude du Milieu Naturel et Agricole (SPW – DEMNA)
+    
+    + Data licence :Creative Commons Attribution (CC-BY) 4.0 License.
+
+![](C:/Users/46123/Pictures/ccby.png) 
+
+  + **Description : **
+  
+```
+Exotic animal occurrences in Wallonia is a presence-only dataset, aggregating exotic fauna occurrences from various data sources maintened by the Département de l’Étude du Milieu Naturel et Agricole (SPW – DGARNE - DEMNA). The management of these sources and the preparation of this compiled dataset is carried out by the department.
+```
+``` 
+Original sources compiled to obtain this dataset (listed below) are heterogeneous (surveys by department officers, citizen observations, conventions with external partners). Attention should therefore be paid to the DC term: "CollectionCode” when figuring out the features of a given record. Also, geo-referencing should be done including ‘FootprintWKT’ when given, as the dataset includes both grid-derived and punctual data.
+``` 
+```{sql echo=FALSE, connection=db}
+select distinct CollectionCode, count(*)Ndonnees from dwcocc group by collectioncode;
+```
+
+``` 
+"Encodage en ligne OFFH" (3832 records) is the core encoding module of the department. This encoding tool (http://observatoire.biodiversite.wallonie.be/encodage) is used by the department's officers, but also by third-party users registered in the system.  
+``` 
+``` 
+"Ecrevisses invasives" (1618 records) is a set of exotic crayfish data compiled and shared by Roger Cammaerts as part of the monitoring of crayfish populations in Belgium.
+``` 
+``` 
+"Enquetes OFFH"(691 records) are variants of the previous tool, dedicated to more specific surveys especially for the follow-up of exotic or invasive species. These specific surveys are open to the general public and can be found at :http://observatoire.biodiversite.wallonie.be/enquetes.
+``` 
+``` 
+"Papillons OFFH" (6 records) is a is a database of butterfly occurrences collected by DEMNA and mostly prior to 2008.
+``` 
+
+``` 
+All records have been subject to a validation procedure performed by the department experts. Validation rules were based on evidences/pictures, thrust with observer’s expertise or ecological relevance, or based on additional information requested to the observer (see DC term :IdentificationVerificationStatus). 
+``` 
+``` 
+This dataset content is under a CC-BY license. Please make sure to quote the Département de l’Étude du Milieu Naturel et Agricole (SPW – DGARNE - DEMNA) if you make any use of the data, using preferably the form ‘Origin of the Information: SPW-DGARNE – DEMNA’ whenever it is possible.
+``` 
+``` 
+Additional information is accessible upon specific request addressed to: http://observatoire.biodiversite.wallonie.be/cmdd/. Please contact the department for additional information about the dataset or about our biodiversity/IAS related activities. Returns and comments are highly appreciated.
+```  
+
+***
+
+  + **Resource Contacts**
+  
+```   
+Maxime Coupremanne
+Administrative point of contact
+Data liaison officer
+Belgian Biodiversity Platform
+WTC III, Boulevard Simon Bolivar 30
+Brussels 1000
+Brussels
+Belgium
+m.coupremanne@biodiversity.be
+``` 
+
+***
+
+ + **Resource Creators :**
+
+```
+All OFFH contributors
+Content provider
+Department officers and external contributors
+```
+
+
+```
+Yvan Barbier
+Processor
+Biodiversity Expert - IT manager
+Département de l'Étude du Milieu Naturel et Agricole (SPW)
+Avenue Maréchal Juin 23
+Gembloux 5030
+Namur
+Belgium
+yvan.barbier@spw.wallonie.be
+``` 
+
+```
+Roger Cammaerts
+Content provider
+Biodiversity Expert
+???
+``` 
+
+```
+Sonia Vanderhoeven
+Author
+Biodiversity expert
+Belgian Biodiversity Platform
+WTC III, Boulevard Simon Bolivar 30
+Brussels 1000
+Brussels
+Belgium
+s.vanderhoeven@biodiversity.be
+```  
+
+```
+Etienne Branquart 
+Biodiversity Expert
+Author
+Département de l'Étude du Milieu Naturel et Agricole (SPW)
+Avenue Maréchal Juin 23
+Gembloux 5030
+Namur
+Belgium
+etienne.branquart@spw.wallonie.be
+``` 
+
+```
+Adrien Latli 
+Biodiversity Expert
+Author
+Département de l'Étude du Milieu Naturel et Agricole (SPW)
+Avenue Maréchal Juin 23
+Gembloux 5030
+Namur
+Belgium
+adrien.latli@spw.wallonie.be
+``` 
+```
+Maxime Coupremanne
+Publisher
+Data liaison officer
+Belgian Biodiversity Platform
+WTC III, Boulevard Simon Bolivar 30
+Brussels 1000
+Brussels
+Belgium
+m.coupremanne@biodiversity.be
+``` 
+
+***
+
+  + **Metadata provider :**  
+```   
+Yvan Barbier
+Biodiversity Expert - IT manager
+Metadata provider
+Département de l'Étude du Milieu Naturel et Agricole (SPW)
+Avenue Maréchal Juin 23
+Gembloux 5030
+Namur
+Belgium
+yvan.barbier@spw.wallonie.be
+``` 
+``` 
+Maxime Coupremanne
+Data liaison officer
+Metadata provider
+Belgian Biodiversity Platform
+WTC III, Boulevard Simon Bolivar 30
+Brussels 1000
+Brussels
+Belgium
+m.coupremanne@biodiversity.be
+```
+
+***
+
+  + **Purpose :**
+
+```
+The dataset was published within the framework of the TrIAS project (Tracking Invasive Alien Species, Vanderhoeven et al. 2017 - http://trias-project.be) .The aim of TrIAS is to establish an open data framework to follow the progression of exotic species, identify emerging species, assess the risk and inform the IAS policies.
+```
+
+***
+
+  + **Temporal scope :**
+  
+```{sql echo=FALSE, connection=db}
+select min(eventdate),max(eventdate) from dwcocc ;
+```
+
+***
+
+
+  + **Geographic scope :**
+  
+```{sql echo=FALSE, connection=db}
+select max(Decimallongitude), min(decimallongitude), max(decimallatitude), min (decimallatitude) from dwcocc ; -- Afin d'établir la boite de couverture sur GBIF
+```
+  
+```
+Wallonia, Southern Belgium.
+```
+
+***
+
+
+  + **Taxonomic scope :**
+  
+```{sql eval=FALSE, connection=db, include=FALSE}
+select distinct(scientificname) from dwcocc ;
+```
+
+```
+The identification of exotic taxa has been done with reference to the Global Register of Introduced and Invasive Species - Belgium (DOI : 10.15468/xoidmd) implemented by the IAS experts of the department. The actual version covers 45 taxa identified at the  species-level.
+```
+
+  + **Keywords :**
+
+```
+ Exotic species ; animalia ; Département de l'Étude du Milieu naturel et agricole; ; Wallonia ; TrIAS project ; observation
+``` 
+
+
+  
+  + **Study extent :**
+      
+```      
+Wallonia, southern Belgium. Some opportunistic data may be slightly out of the described area (Fr). This dataset includes data from different projects that may have very different time distributions.
+
+```
+
+  + **Sampling :**
+
+
+```      
+Multiple sources involving different types of data collection. The dataset encompasses mostly citizen observations and expert surveys.
+```
+  + **Method steps :** 
+      
+```      
+Fusion of various animal occurrences data sources.
+```
+```      
+Selection of exotic animal taxa based on officers expertise and TrIAS Global Register of Introduced and Invasive Species - Belgium.
+```
+```      
+Selection of validated occurrence data (see 'Quality Control'). 
+```
+```      
+Darwin Core formating and publication.
+
+```
+  + **Quality Control :**
+      
+```      
+The validation of occurrence records is carried out by experts from the department. Each validator is assigned to a taxonomic group according to his expertise and has access to corresponding records. The validation may be based on a document (picture), on rules (credibility of the occurrence, of the observer expertise, etc.) or without any supporting document (additional informations provided by the observer). It is documented by the "DC-Term : IdentificationVerificationStatus". Only validated data are included in this publication. The Department is ISO9001 certified. 
+```
+
+  + **Additional info :**
+
+```  
+The content that can be integrated to this publication evolves continuously and depends on data inputs within the department databases, its validation by experts, and also the harmonization of our taxonomic registers of introduced species. Thus updates will be done on a regular basis (yearly).
+
+```
+
+  + **Resource Citation**
+```
+"Origin of the Information: SPW ARNE - Direction de la Nature et de l'Eau et collaborateurs"
+```
+  
+  + **Bibliographic Citation 1**
+```
+Groom Q, Brosens D, Adriaens T, Vanderhoeven S (2017). TrIAS Data Management Plan. Version 1.2.
+```
+
+  + **Bibliographic Citation Identifier 1**
+
+
+  + **Bibliographic Citation 2**
+  
+```
+Vanderhoeven S, Adriaens T, Desmet P, Strubbe D, Backeljau T, Barbier Y, Brosens D, Cigar J, Coupremanne M, De Troch R, Eggermont H, Heughebaert A, Hostens K, Huybrechts P, Jacquemart A, Lens L, Monty A, Paquet J, Prévot C, Robertson T, Termonia P, Van De Kerchove R, Van Hoey G, Van Schaeybroeck B, Vercayie D, Verleye T, Welby S, Groom Q (2017) Tracking Invasive Alien Species (TrIAS): Building a data-driven framework to inform policy. Research Ideas and outcomes 3: e13414.
+```
+
+  + **Bibliographic Citation Identifier 2**
+  
+```
+https://doi.org/10.3897/rio.3.e13414  
+```
+
+  + **Bibliographic Citation 3**
+  
+```
+Groom, Q., Desmet, P., Vanderhoeven, S. and Adriaens, T. The importance of open data for invasive alien species research, policy and management. Management of Biological Invasions 6, 2 (2015), 119–125.
+```
+
+  + **Bibliographic Citation Identifier 3**
+  
+```
+DOI:  http://dx.doi.org/10.3391/mbi.2015.6.2.02
+```
+
+  + **Bibliographic Citation 4**
+  
+```
+Vanderhoeven, S., Adriaens, T., Desmet, P., Strubbe, D., & Davis, A. and Groom, Q. (2018). Mobilizing data to improve IAS policy - beyond good intentions.
+```
+  + **Bibliographic Citation Identifier 4**
+  
+```
+DOI: 10.13140/RG.2.2.15159.37285
+```
+
+  + **Resource Homepage**
+  
+```
+http://observatoire.biodiversite.wallonie.be/cmdd/ 
+```
+  + **Resource logo URL :**
+
+![](C:/Users/46123/Pictures/spw.png)   
+***
+***
+
+#5. Mises à jours
+*Executer ce script de préparation (mettre à jour):*
+
+* Copier une fusion zoologique récente au format SQLITE dans un répertoire local.
+* Ouvrir cette fusion avec une interface graphique (ex. avec DB browser for SQLite).
+* Importer toutes les tables annexes (fichiers .csv) situées dans le répertoire x:/A2/NatureParTheme/GBIF/Exotic_zoo/Fusion_annexes, en gardant le nom de leur fichier csv).
+* Executer le script c SQL 'x:/A2/NatureParTheme/GBIF/Exotic_zoo/SQL/Dicos_updates.sql'. Enregistrer les modifications et fermer.
+* Ouvrir la fusion avec Spatialite-GUI. Executer le script SQL : 'x:/A2/NatureParTheme/GBIF/Exotic_zoo/SQL/Geom_WKT.sql'. Enregistrer les modifications et fermer.
+* Ouvrir le fichier 'x:/A2/NatureParTheme/GBIF/Exotic_zoo/Files/Faune_exotique.rmd' avec Rstudio. 
+* Adapter le chemin d'accès au fichier fusion zoologique SQLITE mis à jour à la première ligne de code de ce script R.
+* Executer (knit).
+* La base de données fusion inclus alors une table 'dwcocc', correspondant au jeu de données prêt à être publié. Le script R génère également ce rapport, avec les requêtes qui décrivent les différentes étapes de la préparation.
+
+***
